@@ -38,30 +38,21 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Elixiary">
   
-<!-- Content Security Policy -->
-<meta http-equiv="Content-Security-Policy" content="
-  default-src 'self';
-  base-uri 'self';
-  object-src 'none';
-  upgrade-insecure-requests;
-
-  img-src 'self' data: https:;
-  font-src 'self' https://fonts.gstatic.com;
-  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-
-  script-src 'self' 'unsafe-inline' https://www.googletagmanager.com;
-
-  connect-src 'self'
-    https://api.elixiary.com
-    https://www.google-analytics.com
-    https://region1.analytics.google.com
-    https://stats.g.doubleclick.net
-    https://www.googletagmanager.com;
-
-  worker-src 'self';
-  manifest-src 'self';
-  form-action 'self';
-">
+<!-- Security -->
+  <meta http-equiv="Content-Security-Policy"
+    content="
+      default-src 'self';
+      font-src 'self' https://fonts.gstatic.com;
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+      img-src 'self' data: https:;
+      connect-src 'self'
+        https://api.elixiary.com
+        https://www.google-analytics.com
+        https://region1.google-analytics.com
+        https://stats.g.doubleclick.net
+        https://www.googletagmanager.com;
+      script-src 'self' 'unsafe-inline' https://www.googletagmanager.com;
+    ">
 
 <link rel="preconnect" href="https://www.googletagmanager.com">
 <link rel="preconnect" href="https://www.google-analytics.com">
