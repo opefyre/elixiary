@@ -1,0 +1,13 @@
+name = "mixology-api"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+kv_namespaces = [
+  { binding = "MIXOLOGY", id = "f2c8787958d14b61b3e11b35c39412ab" } # KV 
+]
+
+[vars]
+SHEET_ID = "1R2Msofpst93N4FL_2npzZchoCyFH5R9JOG_3itFEfD8"
+SHEET_NAME = "posts"
+CACHE_TTL_SECONDS = "300"
+ALLOWED_ORIGINS = "https://elixiary.com,https://www.elixiary.com,https://elixiary.web.app"
