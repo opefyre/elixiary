@@ -1,4 +1,4 @@
-// Mixology API – Cloudflare Worker (Sheets API + KV cache)
+// Mixology API – Cloudflare Worker (Sheets API + KV cache + basic rate limit)
 // Routes:
 //   GET /v1/list?page=&page_size=&q=&category=&difficulty=&tag=&mood=
 //   GET /v1/post/<slug>
@@ -11,9 +11,10 @@ export default {
     try {
       const url = new URL(request.url);
       const path = url.pathname.replace(/\/+$/, '');
+      const method = request.method || 'GET';
 
-      // CORS preflight
-      if (request.method === 'OPTIONS') {
+      // --- CORS preflight ---
+      if (method === 'OPTIONS') {
         const h = new Headers(cors);
         const reqHeaders = request.headers.get('Access-Control-Request-Headers');
         if (reqHeaders) h.set('Access-Control-Allow-Headers', reqHeaders);
@@ -22,13 +23,55 @@ export default {
         return new Response(null, { status: 204, headers: h });
       }
 
+      // --- Block non-GET/HEAD to API endpoints ---
+      if (path.startsWith('/v1/') && !['GET', 'HEAD'].includes(method)) {
+        return new Response(JSON.stringify({ ok:false, error:'method_not_allowed' }), {
+          status: 405,
+          headers: { ...cors, 'Content-Type': 'application/json', 'Allow': 'GET, HEAD, OPTIONS' }
+        });
+      }
+
+      // --- Lightweight per-IP rate limit on /v1/* (free-tier friendly) ---
+      if (path.startsWith('/v1/')) {
+        const limit = Number(env.RL_LIMIT || 60);       // requests
+        const windowSec = Number(env.RL_WINDOW_SEC || 60); // per seconds
+        const ip = clientIp(request) || 'unknown';
+        const now = Date.now();
+        const bucket = Math.floor(now / 1000 / windowSec);
+        const key = `rl:${ip}:${bucket}`;
+
+        // KV isn't atomic, but OK for a simple throttle on free tier
+        let count = 0;
+        const current = await env.MIXOLOGY.get(key);
+        if (current) count = parseInt(current, 10) || 0;
+
+        if (count >= limit) {
+          const resetIn = windowSec - Math.floor((now / 1000) % windowSec);
+          return new Response(JSON.stringify({ ok:false, error:'rate_limited' }), {
+            status: 429,
+            headers: {
+              ...cors,
+              'Content-Type': 'application/json',
+              'Retry-After': String(resetIn),
+              'X-RateLimit-Limit': String(limit),
+              'X-RateLimit-Remaining': '0',
+              'X-RateLimit-Reset': String(resetIn)
+            }
+          });
+        }
+
+        // Increment best-effort and set TTL slightly beyond window
+        await env.MIXOLOGY.put(key, String(count + 1), { expirationTtl: windowSec + 5 });
+      }
+
       if (path === '/v1/list') {
         const qp = objFromSearch(url.searchParams);
         const data = await handleList(qp, env);
         return json(data, 200, {
           ...cors,
           'ETag': data.etag,
-          'Cache-Control': 'public, max-age=60'
+          'Cache-Control': 'public, max-age=60',
+          'X-Content-Type-Options': 'nosniff'
         });
       }
 
@@ -38,7 +81,8 @@ export default {
         const status = data.ok ? 200 : (data.code || 404);
         return json(data, status, {
           ...cors,
-          'Cache-Control': 'public, max-age=60'
+          'Cache-Control': 'public, max-age=60',
+          'X-Content-Type-Options': 'nosniff'
         });
       }
 
@@ -49,7 +93,6 @@ export default {
 
       return new Response('Not found', { status: 404, headers: cors });
     } catch (err) {
-      // Always include CORS on errors too
       return json({ ok: false, error: String(err) }, 500, cors);
     }
   }
@@ -59,75 +102,51 @@ export default {
 
 const API_VERSION = 'v1';
 
-/**
- * Safer CORS:
- * - Allows exact prod origins (elixiary.com, www.elixiary.com, elixiary.web.app)
- * - Allows Firebase preview channels that end with: --elixiary.web.app
- * - Lets you extend via env:
- *     ALLOWED_ORIGINS  = comma/space separated list of exact origins or hosts
- *     ALLOWED_SUFFIXES = comma/space separated host suffixes (e.g. --elixiary.web.app)
- */
+// ALLOWED_ORIGINS can be a comma-separated list or *
+// e.g.: "https://elixiary.com,https://www.elixiary.com,https://elixiary.web.app"
 function corsHeaders(env, origin) {
-  const headers = {
-    'Vary': 'Origin',
-    'Access-Control-Expose-Headers': 'ETag, Cache-Control'
-  };
-  if (!origin) return headers;
+  const expose = 'ETag, Cache-Control, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset';
+  const defaults = [
+    'https://elixiary.com',
+    'https://www.elixiary.com',
+    'https://elixiary.web.app'
+  ];
 
-  let host = '';
-  try {
-    const u = new URL(origin);
-    host = (u.hostname || '').toLowerCase();
-  } catch {
-    return headers; // invalid Origin
-  }
+  let allowAll = false;
+  let allowed = new Set(defaults);
 
-  // Exact allow-list (prod)
-  const exact = new Set([
-    'elixiary.com',
-    'www.elixiary.com',
-    'elixiary.web.app'
-  ]);
-
-  // Extend exact list via env (accepts full origins or bare hosts)
   if (env.ALLOWED_ORIGINS) {
-    String(env.ALLOWED_ORIGINS)
-      .split(/[,\s]+/)
-      .map(s => s.trim())
-      .filter(Boolean)
-      .forEach(x => {
-        try {
-          const h = x.startsWith('http') ? new URL(x).hostname : x;
-          exact.add(h.toLowerCase());
-        } catch {}
-      });
+    const raw = String(env.ALLOWED_ORIGINS).trim();
+    if (raw === '*') {
+      allowAll = true;
+    } else {
+      allowed = new Set(raw.split(/[,\s]+/).map(s => s.trim()).filter(Boolean));
+    }
   }
 
-  // Suffix allow-list for preview channels
-  const defaultSuffixes = ['--elixiary.web.app'];
-  const suffixes = env.ALLOWED_SUFFIXES
-    ? String(env.ALLOWED_SUFFIXES).split(/[,\s]+/).map(s => s.trim()).filter(Boolean)
-    : defaultSuffixes;
-
-  const allowed =
-    exact.has(host) ||
-    suffixes.some(suf => host.endsWith(suf.toLowerCase()));
-
-  if (allowed) {
+  const headers = { 'Vary': 'Origin', 'Access-Control-Expose-Headers': expose };
+  if (allowAll) {
+    headers['Access-Control-Allow-Origin'] = '*';
+  } else if (allowed.has(origin)) {
     headers['Access-Control-Allow-Origin'] = origin;
   }
   return headers;
 }
 
-function objFromSearch(sp) { const o = {}; for (const [k, v] of sp) o[k] = v; return o; }
+function clientIp(request) {
+  return request.headers.get('CF-Connecting-IP')
+      || request.headers.get('True-Client-IP')
+      || (request.headers.get('X-Forwarded-For') || '').split(',')[0].trim()
+      || '';
+}
 
+function objFromSearch(sp) { const o = {}; for (const [k, v] of sp) o[k] = v; return o; }
 function json(obj, status = 200, headers = {}) {
   return new Response(JSON.stringify(obj), {
     status,
     headers: { 'content-type': 'application/json; charset=utf-8', ...headers }
   });
 }
-
 function canon(s) { return String(s || '').replace(/\uFEFF/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ''); }
 function splitCSV(s) { return String(s || '').split(',').map(x => x.trim()).filter(Boolean); }
 function slugify(s) {
@@ -177,8 +196,8 @@ async function buildIndexFromSheet(env) {
 
   const header = values[0];
   const map = Object.fromEntries(header.map((h, i) => [canon(h), i]));
-
   const rows = [];
+
   for (let i = 1; i < values.length; i++) {
     const r = values[i];
     const name = r[map['name']];
@@ -186,7 +205,6 @@ async function buildIndexFromSheet(env) {
     if (!slug) continue;
 
     const img = driveImageLinks(r[map['image_url']]);
-
     rows.push({
       _row: i + 1,
       slug,
@@ -302,13 +320,7 @@ async function handleList(qp, env) {
   const end   = Math.min(start + size, total);
   const slice = (start < total) ? filtered.slice(start, end) : [];
 
-  return {
-    ok: true,
-    etag: idx.etag,
-    total, page, page_size: size,
-    has_more: end < total,
-    posts: slice
-  };
+  return { ok: true, etag: idx.etag, total, page, page_size: size, has_more: end < total, posts: slice };
 }
 
 async function handlePost(slug, env) {
