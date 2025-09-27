@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<users>
+	<user>99FF65807C300F99D988A4FFD56374FE</user>
+</users>
+<urlset
+  xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+  xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://elixiary.web.app/</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://elixiary.web.app/privacy</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  <url>
+    <loc>https://elixiary.web.app/terms</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  <url>
+    <loc>https://elixiary.web.app/contact</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  <url><loc>https://elixiary.web.app/252</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  -->
+</urlset>

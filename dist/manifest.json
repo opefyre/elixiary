@@ -1,0 +1,51 @@
+{
+  "name": "Elixiary - Cocktail Recipe Discovery",
+  "short_name": "Elixiary",
+  "description": "Discover and explore amazing cocktail recipes with detailed ingredients and instructions",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#111827",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en",
+  "categories": ["food", "lifestyle"],
+  "icons": [
+    {
+      "src": "https://lh3.googleusercontent.com/d/1MG6y6fHcYVunEEP4cFRlRpl3-CwExmPs=w192-h192-c-rw",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "https://lh3.googleusercontent.com/d/1MG6y6fHcYVunEEP4cFRlRpl3-CwExmPs=w512-h512-c-rw",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Search Recipes",
+      "short_name": "Search",
+      "description": "Search for cocktail recipes",
+      "url": "/?action=search",
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    },
+    {
+      "src": "/screenshot-narrow.png", 
+      "sizes": "375x812",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ],
+  "prefer_related_applications": false
+}

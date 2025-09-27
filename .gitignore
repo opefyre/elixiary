@@ -1,0 +1,5 @@
+.DS_Store
+node_modules/
+.firebase/
+firebase-debug.log
+dist/.DS_Store

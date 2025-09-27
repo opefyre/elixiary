@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://elixiary.com/sitemap.xml

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" fill="#111827"/>
+  <g transform="translate(96,96)">
+    <!-- Cocktail glass -->
+    <path d="M-30,-20 L30,-20 L0,40 Z" fill="#ffffff" stroke="none"/>
+    <!-- Stem -->
+    <rect x="-2" y="40" width="4" height="30" fill="#ffffff"/>
+    <!-- Base -->
+    <rect x="-20" y="70" width="40" height="6" fill="#ffffff"/>
+    <!-- Garnish/olive -->
+    <circle cx="10" cy="-5" r="3" fill="#10B981"/>
+  </g>
+</svg>

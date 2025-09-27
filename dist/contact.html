@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Contact · Elixiary</title>
+  <meta name="description" content="Contact Elixiary" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1MG6y6fHcYVunEEP4cFRlRpl3-CwExmPs=w32-h32-c-rw">
+  <meta name="theme-color" content="#111827">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' https: data:; script-src 'self' 'unsafe-inline'; connect-src 'self';">
+  <link rel="canonical" href="https://elixiary.web.app/contact">
+  <style>
+    :root{--bg:#fff;--text:#0B0F19;--muted:#6B7280;--line:#E5E7EB;--soft:#F7F8FA;--accent:#111827;--radius:14px;}
+    *{box-sizing:border-box} body{margin:0;font-family:"Plus Jakarta Sans",ui-sans-serif,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text);}
+    .container{max-width:900px;margin:0 auto;padding:24px 20px}
+    header{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--line)}
+    .nav{height:64px;display:flex;align-items:center;justify-content:space-between}
+    .brand{font-weight:700;display:flex;gap:10px;align-items:center;text-decoration:none;color:inherit}
+    main{padding:24px 0}
+    h1{font-size:32px;margin:8px 0 16px}
+    p{line-height:1.7;color:#374151}
+    .card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:24px}
+    form{display:grid;gap:14px;margin-top:8px}
+    label{font-weight:600}
+    input,textarea{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;font:inherit}
+    textarea{min-height:140px;resize:vertical}
+    .btn{display:inline-flex;gap:8px;align-items:center;background:var(--accent);color:#fff;border:0;border-radius:999px;padding:10px 16px;cursor:pointer}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    .muted{color:var(--muted);font-size:14px}
+    footer{border-top:1px solid var(--line);background:var(--soft);margin-top:40px}
+    .footer-bottom{padding:20px 0;display:flex;gap:18px;justify-content:space-between;flex-wrap:wrap;color:var(--muted)}
+    .footer-links a{color:var(--muted);text-decoration:none}
+    .footer-links a:hover{text-decoration:underline}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container nav">
+      <a href="/" class="brand">← Elixiary</a>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <div class="card">
+        <h1>Contact</h1>
+        <p class="muted">Have feedback or a recipe request? Send us a message.</p>
+
+        <!-- Simple mailto form (no backend) -->
+        <form id="contactForm" onsubmit="return sendMailto(event)">
+          <div>
+            <label for="name">Name</label>
+            <input id="name" name="name" required autocomplete="name" />
+          </div>
+          <div>
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" required autocomplete="email" />
+          </div>
+          <div>
+            <label for="message">Message</label>
+            <textarea id="message" name="message" required placeholder="How can we help?"></textarea>
+          </div>
+          <button class="btn" type="submit">Send</button>
+          <div class="muted">This opens your mail app. Want a backend later? We can post to your Cloudflare Worker.</div>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container footer-bottom">
+      <div class="footer-links">
+        <a href="/privacy">Privacy</a> ·
+        <a href="/terms">Terms</a> ·
+        <a href="/contact">Contact</a>
+      </div>
+      <div>© <span id="year"></span> Elixiary</div>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').catch(()=>{}); }
+    function sendMailto(e){
+      e.preventDefault();
+      const n = encodeURIComponent(document.getElementById('name').value.trim());
+      const em = encodeURIComponent(document.getElementById('email').value.trim());
+      const m = encodeURIComponent(document.getElementById('message').value.trim());
+      const subject = `Elixiary contact from ${n}`;
+      const body = `Name: ${n}%0AEmail: ${em}%0A%0A${m}`;
+      window.location.href = `mailto:info@opefyre.com?subject=${subject}&body=${body}`;
+      return false;
+    }
+  </script>
+</body>
+</html>

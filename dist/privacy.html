@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Privacy Policy · Elixiary</title>
+  <meta name="description" content="Elixiary Privacy Policy" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Icons / PWA (reuse what you already use) -->
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/png" href="https://lh3.googleusercontent.com/d/1MG6y6fHcYVunEEP4cFRlRpl3-CwExmPs=w32-h32-c-rw">
+  <meta name="theme-color" content="#111827">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <!-- CSP (same style as index, no API calls here) -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' https: data:; script-src 'self' 'unsafe-inline'; connect-src 'self';">
+
+  <link rel="canonical" href="https://elixiary.web.app/privacy">
+
+  <style>
+    :root{--bg:#fff;--text:#0B0F19;--muted:#6B7280;--line:#E5E7EB;--soft:#F7F8FA;--accent:#111827;--radius:14px;}
+    *{box-sizing:border-box} body{margin:0;font-family:"Plus Jakarta Sans",ui-sans-serif,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text);}
+    .container{max-width:900px;margin:0 auto;padding:24px 20px}
+    header{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--line)}
+    .nav{height:64px;display:flex;align-items:center;justify-content:space-between}
+    .brand{font-weight:700;display:flex;gap:10px;align-items:center;text-decoration:none;color:inherit}
+    main{padding:24px 0}
+    h1{font-size:32px;margin:8px 0 16px}
+    h2{font-size:18px;margin:28px 0 8px}
+    p,li{line-height:1.7;color:#374151}
+    .card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:24px}
+    footer{border-top:1px solid var(--line);background:var(--soft);margin-top:40px}
+    .footer-bottom{padding:20px 0;display:flex;gap:18px;justify-content:space-between;flex-wrap:wrap;color:var(--muted)}
+    .footer-links a{color:var(--muted);text-decoration:none}
+    .footer-links a:hover{text-decoration:underline}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container nav">
+      <a href="/" class="brand">← Elixiary</a>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <div class="card">
+        <h1>Privacy Policy</h1>
+        <p>Last updated: <span id="updated"></span></p>
+
+        <h2>Overview</h2>
+        <p>Elixiary respects your privacy. This page explains what we collect and how we use it.</p>
+
+        <h2>Information we collect</h2>
+        <ul>
+          <li>Basic analytics (page views, device, region) to improve the site. We do not sell personal data.</li>
+          <li>Content you voluntarily send us (e.g., emails via the contact page).</li>
+        </ul>
+
+        <h2>Cookies</h2>
+        <p>We use local storage for performance (e.g., caching list pages). No advertising cookies.</p>
+
+        <h2>Data sharing</h2>
+        <p>We do not share personal data with third parties, except service providers strictly needed to run the site (hosting, CDN).</p>
+
+        <h2>Your choices</h2>
+        <p>You can request deletion of any information you sent us. Contact: <a href="/contact">/contact</a>.</p>
+
+        <h2>Changes</h2>
+        <p>We may update this policy. We’ll update the date at the top of this page.</p>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="container footer-bottom">
+      <div class="footer-links">
+        <a href="/privacy">Privacy</a> ·
+        <a href="/terms">Terms</a> ·
+        <a href="/contact">Contact</a>
+      </div>
+      <div>© <span id="year"></span> Elixiary</div>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    document.getElementById('updated').textContent = new Date().toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
+    if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').catch(()=>{}); }
+  </script>
+</body>
+</html>
