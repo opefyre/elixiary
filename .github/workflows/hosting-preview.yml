@@ -1,0 +1,31 @@
+name: Firebase Hosting Preview
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'dist/**'
+      - 'firebase.json'
+      - '.firebaserc'
+      - '.github/workflows/**'
+
+jobs:
+  preview:
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Deploy PR to a temporary preview channel
+      - name: Deploy preview
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          projectId: elixiary
+          channelId: 'pr-${{ github.event.number }}'
+          entryPoint: '.'
+          expires: 7d
