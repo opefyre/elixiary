@@ -49,6 +49,7 @@ export default {
 
       return new Response('Not found', { status: 404, headers: cors });
     } catch (err) {
+      // Always include CORS on errors too
       return json({ ok: false, error: String(err) }, 500, cors);
     }
   }
@@ -58,32 +59,63 @@ export default {
 
 const API_VERSION = 'v1';
 
-// Set env.ALLOWED_ORIGINS to a comma-separated list.
-// Example default is in wrangler.toml [vars].
+/**
+ * Safer CORS:
+ * - Allows exact prod origins (elixiary.com, www.elixiary.com, elixiary.web.app)
+ * - Allows Firebase preview channels that end with: --elixiary.web.app
+ * - Lets you extend via env:
+ *     ALLOWED_ORIGINS  = comma/space separated list of exact origins or hosts
+ *     ALLOWED_SUFFIXES = comma/space separated host suffixes (e.g. --elixiary.web.app)
+ */
 function corsHeaders(env, origin) {
-  const expose = 'ETag, Cache-Control';
-  const allowed = new Set(
-    String(env.ALLOWED_ORIGINS || '')
+  const headers = {
+    'Vary': 'Origin',
+    'Access-Control-Expose-Headers': 'ETag, Cache-Control'
+  };
+  if (!origin) return headers;
+
+  let host = '';
+  try {
+    const u = new URL(origin);
+    host = (u.hostname || '').toLowerCase();
+  } catch {
+    return headers; // invalid Origin
+  }
+
+  // Exact allow-list (prod)
+  const exact = new Set([
+    'elixiary.com',
+    'www.elixiary.com',
+    'elixiary.web.app'
+  ]);
+
+  // Extend exact list via env (accepts full origins or bare hosts)
+  if (env.ALLOWED_ORIGINS) {
+    String(env.ALLOWED_ORIGINS)
       .split(/[,\s]+/)
       .map(s => s.trim())
       .filter(Boolean)
-  );
-
-  const headers = {
-    'Vary': 'Origin',
-    'Access-Control-Expose-Headers': expose
-  };
-
-  if (allowed.size === 0) {
-    // If nothing set, be strict and allow no cross-origin by default:
-    // callers on same origin still work without ACAO.
-    return headers;
+      .forEach(x => {
+        try {
+          const h = x.startsWith('http') ? new URL(x).hostname : x;
+          exact.add(h.toLowerCase());
+        } catch {}
+      });
   }
 
-  if (allowed.has(origin)) {
+  // Suffix allow-list for preview channels
+  const defaultSuffixes = ['--elixiary.web.app'];
+  const suffixes = env.ALLOWED_SUFFIXES
+    ? String(env.ALLOWED_SUFFIXES).split(/[,\s]+/).map(s => s.trim()).filter(Boolean)
+    : defaultSuffixes;
+
+  const allowed =
+    exact.has(host) ||
+    suffixes.some(suf => host.endsWith(suf.toLowerCase()));
+
+  if (allowed) {
     headers['Access-Control-Allow-Origin'] = origin;
   }
-
   return headers;
 }
 
