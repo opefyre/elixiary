@@ -2,53 +2,32 @@ name: Healthchecks
 
 on:
   schedule:
-    - cron: '*/30 * * * *'  # every 30 minutes
-  workflow_dispatch:
+    - cron: '*/30 * * * *'   # every 30 minutes
+  workflow_dispatch:         # allow manual run from Actions tab
 
-concurrency:
-  group: healthchecks
-  cancel-in-progress: true
+permissions:
+  contents: read
 
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
-      - name: Check website (200-399)
+      - name: Check www and API
+        shell: bash
         run: |
-          set -euo pipefail
-          CODE=$(curl -sS -o /dev/null -w "%{http_code}" "https://elixiary.com/?_=${GITHUB_RUN_ID}")
-          echo "Site status: $CODE"
-          test "$CODE" -ge 200 -a "$CODE" -lt 400
+          set -euxo pipefail
+          curl -fsS --max-time 15 https://www.elixiary.com/ -o /dev/null
+          curl -fsS --max-time 15 "https://api.elixiary.com/v1/list?page=1&page_size=1" -o /dev/null
 
-      - name: Check API (200-399)
+      - name: Write summary (always)
+        if: always()
         run: |
-          set -euo pipefail
-          CODE=$(curl -sS -o /dev/null -w "%{http_code}" "https://api.elixiary.com/v1/list?page=1&page_size=1&_=${GITHUB_RUN_ID}")
-          echo "API status: $CODE"
-          test "$CODE" -ge 200 -a "$CODE" -lt 400
-
-      - name: Open issue on failure
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const title = `⚠️ Healthcheck failed (run ${context.runNumber})`
-            const body = [
-              'Automated healthcheck failed.',
-              `Workflow: ${context.workflow}`,
-              `Run: ${context.runId}`,
-              `Branch: ${context.ref}`,
-              `Actor: ${context.actor}`,
-              '',
-              'Endpoints checked:',
-              '- https://elixiary.com',
-              '- https://api.elixiary.com/v1/list?page=1&page_size=1'
-            ].join('\n')
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title,
-              body,
-              labels: ['healthcheck','auto']
-            })
+          {
+            echo "## Healthcheck summary"
+            echo ""
+            echo "- Site: https://www.elixiary.com/"
+            echo "- API : https://api.elixiary.com/v1/list?page=1&page_size=1"
+            echo "- Result: ${{ job.status }}"
+            echo "- Time: $(date -u +'%Y-%m-%d %H:%M:%S') UTC"
+          } >> "$GITHUB_STEP_SUMMARY"
