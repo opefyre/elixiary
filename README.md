@@ -1,4 +1,4 @@
-Elixiary – Architecture, Codebase, and Operations
+Elixiary.com – Architecture, Codebase, and Operations
 
 This document explains Elixiary end-to-end: system design, repos, deployments, DNS, security, and how everything connects. A developer can onboard and operate the app without reading the code first.
 
