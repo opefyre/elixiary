@@ -1,7 +1,19 @@
-// Mixology API – Cloudflare Worker (Sheets API + KV cache + basic rate limit)
+// Mixology API – Cloudflare Worker (Sheets API + KV cache + OAuth + CORS + simple rate limit)
 // Routes:
-//   GET /v1/list?page=&page_size=&q=&category=&difficulty=&tag=&mood=
-//   GET /v1/post/<slug>
+//   GET  /v1/list?page=&page_size=&q=&category=&difficulty=&tag=&mood=
+//   GET  /v1/post/<slug>
+//   GET  /v1/debug
+//   HEAD /v1/* (lightweight OK with cache headers)
+//
+// Required bindings (Worker -> Settings -> Variables / KV):
+//   KV:    MIXOLOGY
+//   VARS:  SHEET_ID, SHEET_NAME
+//          (either) GOOGLE_SA_JSON  ← recommended (full Service Account JSON; Sheet shared with its client_email as Viewer)
+//          (or)     GOOGLE_API_KEY  ← fallback (requires public sheet)
+//   VARS (optional): ALLOWED_ORIGINS (csv, supports wildcards like https://*.web.app)
+//                    CACHE_TTL_SECONDS (default 300)
+//                    PAGE_DEFAULT (default 12), PAGE_MAX (default 48)
+//                    RL_LIMIT (default 60), RL_WINDOW_SEC (default 60)
 
 export default {
   async fetch(request, env, ctx) {
@@ -25,38 +37,35 @@ export default {
 
       // --- Block non-GET/HEAD to API endpoints ---
       if (path.startsWith('/v1/') && !['GET', 'HEAD'].includes(method)) {
-        return new Response(JSON.stringify({ ok:false, error:'method_not_allowed' }), {
-          status: 405,
-          headers: { ...cors, 'Content-Type': 'application/json', 'Allow': 'GET, HEAD, OPTIONS' }
+        return json({ ok: false, error: 'method_not_allowed' }, 405, {
+          ...cors,
+          'Allow': 'GET, HEAD, OPTIONS',
+          'X-Content-Type-Options': 'nosniff'
         });
       }
 
       // --- Lightweight per-IP rate limit on /v1/* (free-tier friendly) ---
       if (path.startsWith('/v1/')) {
-        const limit = Number(env.RL_LIMIT || 60);       // requests
-        const windowSec = Number(env.RL_WINDOW_SEC || 60); // per seconds
+        const limit = Number(env.RL_LIMIT || 60);          // requests
+        const windowSec = Number(env.RL_WINDOW_SEC || 60); // per N seconds
         const ip = clientIp(request) || 'unknown';
         const now = Date.now();
         const bucket = Math.floor(now / 1000 / windowSec);
         const key = `rl:${ip}:${bucket}`;
 
-        // KV isn't atomic, but OK for a simple throttle on free tier
         let count = 0;
         const current = await env.MIXOLOGY.get(key);
         if (current) count = parseInt(current, 10) || 0;
 
         if (count >= limit) {
           const resetIn = windowSec - Math.floor((now / 1000) % windowSec);
-          return new Response(JSON.stringify({ ok:false, error:'rate_limited' }), {
-            status: 429,
-            headers: {
-              ...cors,
-              'Content-Type': 'application/json',
-              'Retry-After': String(resetIn),
-              'X-RateLimit-Limit': String(limit),
-              'X-RateLimit-Remaining': '0',
-              'X-RateLimit-Reset': String(resetIn)
-            }
+          return json({ ok: false, error: 'rate_limited' }, 429, {
+            ...cors,
+            'Retry-After': String(resetIn),
+            'X-RateLimit-Limit': String(limit),
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': String(resetIn),
+            'X-Content-Type-Options': 'nosniff'
           });
         }
 
@@ -64,6 +73,15 @@ export default {
         await env.MIXOLOGY.put(key, String(count + 1), { expirationTtl: windowSec + 5 });
       }
 
+      // --- HEAD shortcut (cheap success + cache hints) ---
+      if (method === 'HEAD' && path.startsWith('/v1/')) {
+        return new Response(null, {
+          status: 200,
+          headers: { ...cors, 'Cache-Control': 'public, max-age=60', 'X-Content-Type-Options': 'nosniff' }
+        });
+      }
+
+      // --- Routes ---
       if (path === '/v1/list') {
         const qp = objFromSearch(url.searchParams);
         const data = await handleList(qp, env);
@@ -88,12 +106,16 @@ export default {
 
       if (path === '/v1/debug') {
         const idx = await getIndex(env);
-        return json({ ok: true, total: idx.rows.length, sample: idx.rows.slice(0, 3) }, 200, cors);
+        return json({ ok: true, total: idx.rows.length, sample: idx.rows.slice(0, 3) }, 200, {
+          ...cors,
+          'Cache-Control': 'no-store',
+          'X-Content-Type-Options': 'nosniff'
+        });
       }
 
       return new Response('Not found', { status: 404, headers: cors });
     } catch (err) {
-      return json({ ok: false, error: String(err) }, 500, cors);
+      return json({ ok: false, error: String(err) }, 500, { ...cors, 'X-Content-Type-Options': 'nosniff' });
     }
   }
 };
@@ -102,34 +124,54 @@ export default {
 
 const API_VERSION = 'v1';
 
-// ALLOWED_ORIGINS can be a comma-separated list or *
-// e.g.: "https://elixiary.com,https://www.elixiary.com,https://elixiary.web.app"
+// CORS with wildcard support (e.g. https://*.web.app)
 function corsHeaders(env, origin) {
   const expose = 'ETag, Cache-Control, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset';
+  const headers = { 'Vary': 'Origin', 'Access-Control-Expose-Headers': expose };
+
+  if (!origin) return headers;
+
   const defaults = [
     'https://elixiary.com',
     'https://www.elixiary.com',
-    'https://elixiary.web.app'
+    'https://elixiary.web.app',
+    'https://*.web.app'
   ];
 
-  let allowAll = false;
-  let allowed = new Set(defaults);
+  const raw = (env.ALLOWED_ORIGINS || '').trim();
+  const patterns = [
+    ...defaults,
+    ...(raw ? raw.split(/[,\s]+/).map(s => s.trim()).filter(Boolean) : [])
+  ];
 
-  if (env.ALLOWED_ORIGINS) {
-    const raw = String(env.ALLOWED_ORIGINS).trim();
-    if (raw === '*') {
-      allowAll = true;
-    } else {
-      allowed = new Set(raw.split(/[,\s]+/).map(s => s.trim()).filter(Boolean));
-    }
-  }
-
-  const headers = { 'Vary': 'Origin', 'Access-Control-Expose-Headers': expose };
-  if (allowAll) {
+  if (patterns.includes('*')) {
     headers['Access-Control-Allow-Origin'] = '*';
-  } else if (allowed.has(origin)) {
-    headers['Access-Control-Allow-Origin'] = origin;
+    return headers;
   }
+
+  let ok = false;
+  try {
+    const o = new URL(origin);
+    const host = o.host;
+    const proto = o.protocol;
+
+    for (const p of patterns) {
+      if (!p) continue;
+      const isWildcard = p.includes('*.');
+      if (isWildcard) {
+        // pattern like https://*.web.app
+        const m = p.match(/^(https?:\/\/)\*\.(.+)$/i);
+        if (!m) continue;
+        const pProto = m[1];
+        const suffix = m[2];
+        if (proto === pProto && (host === suffix || host.endsWith('.' + suffix))) { ok = true; break; }
+      } else {
+        if (origin === p) { ok = true; break; }
+      }
+    }
+  } catch (_) {}
+
+  if (ok) headers['Access-Control-Allow-Origin'] = origin;
   return headers;
 }
 
@@ -182,8 +224,21 @@ async function hashHex(s) {
 
 async function fetchSheetValues(env, rangeA1) {
   const base = `https://sheets.googleapis.com/v4/spreadsheets/${env.SHEET_ID}/values/`;
-  const url = `${base}${encodeURIComponent(rangeA1)}?key=${env.GOOGLE_API_KEY}`;
-  const r = await fetch(url, { cf: { cacheEverything: false }});
+  const url  = `${base}${encodeURIComponent(rangeA1)}`;
+
+  // Prefer service-account OAuth if GOOGLE_SA_JSON is present
+  if (env.GOOGLE_SA_JSON) {
+    const token = await getGoogleAccessToken(env);
+    const r = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' },
+      cf: { cacheEverything: false }
+    });
+    if (!r.ok) throw new Error(`Sheets API ${r.status}`);
+    return r.json();
+  }
+
+  // Fallback: API key (requires the sheet to be public)
+  const r = await fetch(url + `?key=${env.GOOGLE_API_KEY}`, { cf: { cacheEverything: false } });
   if (!r.ok) throw new Error(`Sheets API ${r.status}`);
   return r.json();
 }
@@ -293,6 +348,7 @@ function filterIndex(rows, qRaw, tag, cat, mood) {
   if (tag)  out = out.filter(p => (p.tags || []).map(t => t.toLowerCase()).includes(tag.toLowerCase()));
   if (cat)  out = out.filter(p => String(p.category || '').toLowerCase() === cat.toLowerCase());
   if (mood) out = out.filter(p => (p.mood_labels || []).map(m => m.toLowerCase()).includes(mood.toLowerCase()));
+  // newest first by date (lexicographic ISO)
   out = out.slice().sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
   return out;
 }
@@ -310,6 +366,7 @@ async function handleList(qp, env) {
 
   const idx = await getIndex(env);
 
+  // cache hint: allow reuse of first page if unchanged and no filters
   if (ifE && ifE === idx.etag && page === 1 && !q && !tag && !cat && !mood) {
     return { ok: true, etag: idx.etag, not_modified: true, total: idx.rows.length, page: 1, page_size: size };
   }
@@ -320,7 +377,13 @@ async function handleList(qp, env) {
   const end   = Math.min(start + size, total);
   const slice = (start < total) ? filtered.slice(start, end) : [];
 
-  return { ok: true, etag: idx.etag, total, page, page_size: size, has_more: end < total, posts: slice };
+  return {
+    ok: true,
+    etag: idx.etag,
+    total, page, page_size: size,
+    has_more: end < total,
+    posts: slice
+  };
 }
 
 async function handlePost(slug, env) {
@@ -329,4 +392,95 @@ async function handlePost(slug, env) {
   if (!rec) return { ok: false, code: 404, error: 'not_found' };
   const post = await fetchRowFull(env, rec._row);
   return { ok: true, post };
+}
+
+/* ---------- GOOGLE SA OAUTH (JWT) ---------- */
+
+async function getGoogleAccessToken(env) {
+  // Try KV (cached token)
+  const cached = await env.MIXOLOGY.get('google_oauth_token', { type: 'json' });
+  const now = Math.floor(Date.now() / 1000);
+  if (cached && cached.access_token && cached.exp && cached.exp - 60 > now) {
+    return cached.access_token;
+  }
+
+  const { client_email, private_key } = JSON.parse(env.GOOGLE_SA_JSON || '{}');
+  if (!client_email || !private_key) throw new Error('Missing GOOGLE_SA_JSON (client_email/private_key)');
+
+  const iat = now;
+  const exp = iat + 3600; // 1h
+  const scope = 'https://www.googleapis.com/auth/spreadsheets.readonly';
+  const aud = 'https://oauth2.googleapis.com/token';
+
+  const header  = { alg: 'RS256', typ: 'JWT' };
+  const payload = { iss: client_email, scope, aud, iat, exp };
+
+  const jwt = await signJwtRS256(header, payload, private_key);
+
+  const body = new URLSearchParams({
+    grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+    assertion: jwt
+  });
+
+  const resp = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body
+  });
+  if (!resp.ok) throw new Error(`oauth2 token ${resp.status}`);
+  const data = await resp.json(); // { access_token, expires_in, token_type }
+
+  await env.MIXOLOGY.put('google_oauth_token', JSON.stringify({
+    access_token: data.access_token,
+    exp: now + Math.max(0, Math.min(3600, (data.expires_in || 3600)))
+  }), { expirationTtl: 3500 });
+
+  return data.access_token;
+}
+
+async function signJwtRS256(header, payload, pemPrivateKey) {
+  const enc = new TextEncoder();
+  const input = `${b64urlFromString(JSON.stringify(header))}.${b64urlFromString(JSON.stringify(payload))}`;
+
+  const key = await importPkcs8PrivateKey(pemPrivateKey);
+  const sig = await crypto.subtle.sign(
+    { name: 'RSASSA-PKCS1-v1_5' },
+    key,
+    enc.encode(input)
+  );
+  return `${input}.${b64urlBytes(new Uint8Array(sig))}`;
+}
+
+async function importPkcs8PrivateKey(pem) {
+  // pem: -----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----
+  const b64 = pem.replace(/-----BEGIN PRIVATE KEY-----/g, '')
+                 .replace(/-----END PRIVATE KEY-----/g, '')
+                 .replace(/\s+/g, '');
+  const bin = b64ToArrayBuffer(b64);
+  return crypto.subtle.importKey(
+    'pkcs8',
+    bin,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+}
+
+function b64urlFromString(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+function b64urlBytes(bytes) {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+function b64ToArrayBuffer(b64) {
+  const binStr = atob(b64);
+  const len = binStr.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) bytes[i] = binStr.charCodeAt(i);
+  return bytes.buffer;
 }
