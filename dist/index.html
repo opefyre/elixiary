@@ -2969,21 +2969,6 @@ if ('serviceWorker' in navigator) {
 <script>
 /* ---------------------- SPA + Custom Events Wiring ----------------------- */
 (function(){
-  // --- Page view helper (manual for SPA) ---
-  function trackPageView(){
-    gtag('event', 'page_view', {
-      page_title: document.title,
-      page_location: location.href,
-      page_path: location.pathname
-    });
-  }
-
-  // Initial + SPA navigation
-  window.addEventListener('load', () => setTimeout(trackPageView, 0));
-  const _push = history.pushState;
-  history.pushState = function(){ const r = _push.apply(this, arguments); setTimeout(trackPageView, 0); return r; };
-  window.addEventListener('popstate', () => setTimeout(trackPageView, 0));
-
   // Search term (fires when user commits the field)
   const q = document.getElementById('q');
   if (q){
