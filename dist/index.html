@@ -1463,6 +1463,9 @@
     retryCount: 0,
     isOnline: navigator.onLine,
     theme: 'light',
+    categorySet: new Set(),
+    categorySignature: '',
+    searchHandlersBound: false,
     schema: {
       homeScript: null,
       homeMarkup: '',
@@ -2320,19 +2323,41 @@
 
   // ===== FILTER MANAGEMENT =====
   const FilterManager = {
-    buildChips(posts) {
-      if (AppState.chipsBuilt) {
+    reset() {
+      AppState.categorySet = new Set();
+      AppState.categorySignature = '';
+      AppState.chipsBuilt = false;
+    },
+
+    mergeCategories(posts) {
+      if (!Array.isArray(posts) || !posts.length) return;
+
+      if (!(AppState.categorySet instanceof Set)) {
+        AppState.categorySet = new Set();
+      }
+
+      posts.forEach(post => {
+        if (post && post.category) {
+          AppState.categorySet.add(post.category);
+        }
+      });
+    },
+
+    buildChips() {
+      const categories = Array.from(AppState.categorySet || []);
+      const signature = categories.join('|');
+
+      if (AppState.chipsBuilt && AppState.categorySignature === signature) {
         this.updateChipStates();
         return;
       }
-
-      const categories = Array.from(new Set(posts.map(p => p.category).filter(Boolean)));
 
       this.createChipGroup(categories, 'category', '#cat');
       this.setupChipHandlers();
       this.setupSearchHandlers();
 
       AppState.chipsBuilt = true;
+      AppState.categorySignature = signature;
     },
 
     createChipGroup(items, key, selector) {
@@ -2416,6 +2441,8 @@
     },
 
     setupSearchHandlers() {
+      if (AppState.searchHandlersBound) return;
+
       const searchInput = Utils.$('#q');
       const clearBtn = Utils.$('#clear');
 
@@ -2442,6 +2469,8 @@
           Renderer.renderList(true);
         });
       }
+
+      AppState.searchHandlersBound = true;
     }
   };
 
@@ -2489,6 +2518,7 @@
 
       if (cached) {
         Renderer.appendCards(cached.posts);
+        FilterManager.buildChips();
         AppState.page = nextPage;
         AppState.hasMore = cached.has_more;
         this.updatePager();
@@ -2512,6 +2542,7 @@
         });
         
         Renderer.appendCards(data.posts);
+        FilterManager.buildChips();
         AppState.page = nextPage;
         AppState.hasMore = data.has_more;
         
@@ -2561,6 +2592,7 @@
         AppState.loadingMore = false;
         view.innerHTML = UIComponents.skeletonCards();
         AppState.etag = (CacheManager.get('mixology:etag') || {}).val || null;
+        FilterManager.reset();
         if (AppState.observer) {
           AppState.observer.disconnect();
           AppState.observer = null;
@@ -2574,7 +2606,7 @@
       if (reset && cached) {
         AppState.etag = cached.etag || AppState.etag || null;
         this.paintCards(cached.posts, cached.total, cached.has_more, true);
-        FilterManager.buildChips(cached.posts);
+        FilterManager.buildChips();
       }
 
       const data = await APIClient.fetchList({ 
@@ -2604,7 +2636,7 @@
         });
 
         this.paintCards(data.posts, data.total, data.has_more, true);
-        FilterManager.buildChips(data.posts);
+        FilterManager.buildChips();
       }
 
       AppState.page = 1;
@@ -2617,11 +2649,13 @@
     paintCards(posts, total, hasMore, replace) {
       const view = Utils.$('#view');
       const countEl = Utils.$('#count');
-      
+
       if (!Array.isArray(posts)) {
         posts = [];
       }
-      
+
+      FilterManager.mergeCategories(posts);
+
       if (countEl) countEl.textContent = String(total ?? posts.length);
 
       if (!posts.length) {
@@ -2658,6 +2692,8 @@
 
     appendCards(newPosts) {
       if (!Array.isArray(newPosts) || !newPosts.length) return;
+
+      FilterManager.mergeCategories(newPosts);
 
       const cards = newPosts.map(recipe => UIComponents.createCard(recipe)).join('');
       
