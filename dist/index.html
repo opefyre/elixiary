@@ -1994,26 +1994,43 @@
         return;
       }
       
+      const listImageUrl = recipe.image_url || recipe.image_thumb;
+      if (listImageUrl) {
+        console.log(`🖼️ Using list image for ${recipe.name}: ${listImageUrl}`);
+
+        this.imageCache.set(cacheKey, {
+          image_url: recipe.image_url || null,
+          image_thumb: recipe.image_thumb || null
+        });
+
+        const directImageUrl = this.convertToDirectImageUrl(listImageUrl);
+        console.log(`🔄 Converted list URL for ${recipe.name}: ${directImageUrl}`);
+
+        this.loadImageWithBlurEffect(img, directImageUrl);
+        img.dataset.realImage = 'loaded';
+        return;
+      }
+
       try {
         console.log(`🌐 Fetching detail data for: ${recipe.slug}`);
         const response = await APIClient.fetchPost(recipe.slug);
         console.log(`📡 API response for ${recipe.name}:`, response);
-        
+
         if (response.ok && response.post) {
           const realImageUrl = response.post.image_url || response.post.image_thumb;
           console.log(`🔗 Found image URL for ${recipe.name}:`, realImageUrl);
-          
+
           this.imageCache.set(cacheKey, {
             image_url: response.post.image_url,
             image_thumb: response.post.image_thumb
           });
-          
+
           if (realImageUrl) {
             console.log(`🖼️ Testing image load for ${recipe.name}: ${realImageUrl}`);
-            
+
             const directImageUrl = this.convertToDirectImageUrl(realImageUrl);
             console.log(`🔄 Converted URL: ${directImageUrl}`);
-            
+
             this.loadImageWithBlurEffect(img, directImageUrl);
             img.dataset.realImage = 'loaded';
             this.cacheImageUrl(recipe.slug, directImageUrl); // Cache the working URL
@@ -2107,13 +2124,20 @@
     extractRecipeData(card) {
       const titleEl = card.querySelector('.title');
       const href = card.getAttribute('href');
-      
+
       if (!titleEl || !href) return null;
-      
+
       const slug = Utils.normalizeSlug(href);
       const name = titleEl.textContent.trim();
-      
-      return { slug, name };
+      const imageUrl = card.dataset.imageUrl || null;
+      const imageThumb = card.dataset.imageThumb || null;
+
+      return {
+        slug,
+        name,
+        image_url: imageUrl || null,
+        image_thumb: imageThumb || null
+      };
     },
 
     observeImageForLazyLoad(img, recipe) {
@@ -2187,8 +2211,10 @@
 
     createCard(recipe) {
       return `
-        <a class="card fade-in" 
-           href="/${encodeURIComponent(recipe.slug)}" 
+        <a class="card fade-in"
+           href="/${encodeURIComponent(recipe.slug)}"
+           data-image-url="${Utils.esc(recipe.image_url || '')}"
+           data-image-thumb="${Utils.esc(recipe.image_thumb || '')}"
            onclick="return Router.go('/${encodeURIComponent(recipe.slug)}')"
            role="article"
            aria-label="Recipe: ${Utils.esc(recipe.name || 'Untitled')}">
