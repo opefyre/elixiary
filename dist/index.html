@@ -1480,6 +1480,32 @@
     return (meta && meta.content) || 'Discover and explore an extensive collection of cocktail recipes with detailed ingredients, instructions, and beautiful photography. Find your perfect drink.';
   })();
 
+  const DEFAULT_PAGE_URLS = (() => {
+    const canonicalEl = document.querySelector('link[rel="canonical"]');
+    const ogEl = document.querySelector('meta[property="og:url"]');
+    const twitterEl = document.querySelector('meta[name="twitter:url"]');
+
+    const fallback = `${location.origin.replace(/\/$/, '')}/`;
+    const canonicalHref = (canonicalEl && canonicalEl.getAttribute('href')) || fallback;
+
+    let canonicalUrl;
+    try {
+      canonicalUrl = new URL(canonicalHref, location.origin);
+    } catch (_) {
+      canonicalUrl = new URL(fallback);
+    }
+
+    const basePath = canonicalUrl.pathname.replace(/^\/+|\/+$/g, '');
+
+    return {
+      canonical: canonicalUrl.toString(),
+      og: (ogEl && ogEl.getAttribute('content')) || canonicalUrl.toString(),
+      twitter: (twitterEl && twitterEl.getAttribute('content')) || canonicalUrl.toString(),
+      baseUrl: canonicalUrl,
+      basePath
+    };
+  })();
+
   const Utils = {
     $: sel => document.querySelector(sel),
     $$: sel => document.querySelectorAll(sel),
@@ -1532,6 +1558,45 @@
         } else {
           metaDesc.content = DEFAULT_META_DESCRIPTION;
         }
+      }
+    },
+
+    updateShareUrls: (path = location.pathname) => {
+      const canonicalLink = Utils.$('link[rel="canonical"]');
+      const ogUrl = Utils.$('meta[property="og:url"]');
+      const twitterUrl = Utils.$('meta[name="twitter:url"]');
+
+      if (!canonicalLink && !ogUrl && !twitterUrl) return;
+
+      let slug = Utils.normalizeSlug(path);
+
+      if (slug && DEFAULT_PAGE_URLS.basePath) {
+        if (slug === DEFAULT_PAGE_URLS.basePath) {
+          slug = '';
+        } else if (slug.startsWith(`${DEFAULT_PAGE_URLS.basePath}/`)) {
+          slug = slug.slice(DEFAULT_PAGE_URLS.basePath.length + 1);
+        }
+      }
+
+      const hasSlug = Boolean(slug);
+      let resolvedUrl = DEFAULT_PAGE_URLS.canonical;
+
+      if (hasSlug) {
+        try {
+          resolvedUrl = new URL(slug, DEFAULT_PAGE_URLS.baseUrl).toString();
+        } catch (_) {
+          resolvedUrl = `${location.origin.replace(/\/$/, '')}/${slug}`;
+        }
+      }
+
+      if (canonicalLink) {
+        canonicalLink.setAttribute('href', hasSlug ? resolvedUrl : DEFAULT_PAGE_URLS.canonical);
+      }
+      if (ogUrl) {
+        ogUrl.setAttribute('content', hasSlug ? resolvedUrl : DEFAULT_PAGE_URLS.og);
+      }
+      if (twitterUrl) {
+        twitterUrl.setAttribute('content', hasSlug ? resolvedUrl : DEFAULT_PAGE_URLS.twitter);
       }
     },
 
@@ -2746,12 +2811,14 @@
       
       if (!response.ok || !response.post) {
         Utils.setTitle();
+        Utils.updateShareUrls();
         ErrorHandler.showError('Recipe not found.', false);
         return null;
       }
 
       const recipe = response.post;
       Utils.setTitle(recipe.name || 'Recipe');
+      Utils.updateShareUrls(slug);
 
       Utils.applyRecipeSchema(recipe);
 
@@ -2866,6 +2933,7 @@
         // Home page - show filters
         if (filtersEl) filtersEl.style.display = 'block';
         Utils.setTitle();
+        Utils.updateShareUrls();
         return Renderer.renderList(true);
       } else {
         AppState.requestId = 0;
