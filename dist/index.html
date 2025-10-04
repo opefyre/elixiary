@@ -1630,6 +1630,7 @@
 
       // Remove If-None-Match header due to CORS restrictions
       try {
+        if (ifEtag) url.searchParams.set('if_etag', ifEtag);
         const res = await this.fetchWithRetry(url.toString(), {
           credentials: 'omit'
         });
