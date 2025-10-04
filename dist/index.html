@@ -1466,6 +1466,11 @@
   };
 
   // ===== UTILITIES =====
+  const DEFAULT_META_DESCRIPTION = (() => {
+    const meta = document.querySelector('meta[name="description"]');
+    return (meta && meta.content) || 'Discover and explore an extensive collection of cocktail recipes with detailed ingredients, instructions, and beautiful photography. Find your perfect drink.';
+  })();
+
   const Utils = {
     $: sel => document.querySelector(sel),
     $$: sel => document.querySelectorAll(sel),
@@ -1509,12 +1514,14 @@
     setTitle: (title) => {
       const fullTitle = title ? `${title} · Elixiary` : 'Elixiary - Discover Amazing Cocktail Recipes';
       document.title = fullTitle;
-      
-      // Update meta description for detail pages
-      if (title && title !== 'Elixiary') {
-        let metaDesc = Utils.$('meta[name="description"]');
-        if (metaDesc) {
+
+      // Update meta description for detail pages or reset to site-wide message
+      const metaDesc = Utils.$('meta[name="description"]');
+      if (metaDesc) {
+        if (title && title !== 'Elixiary') {
           metaDesc.content = `Learn how to make ${title} with detailed ingredients and instructions. Discover more cocktail recipes at Elixiary.`;
+        } else {
+          metaDesc.content = DEFAULT_META_DESCRIPTION;
         }
       }
     },
