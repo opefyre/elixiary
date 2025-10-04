@@ -1461,6 +1461,7 @@
     loadingMore: false,
     observer: null,
     retryCount: 0,
+    requestId: 0,
     isOnline: navigator.onLine,
     theme: 'light',
     categorySet: new Set(),
@@ -2573,6 +2574,8 @@
     async renderList(reset) {
       const view = Utils.$('#view');
 
+      const requestToken = ++AppState.requestId;
+
       Utils.restoreHomeSchema();
 
       // Ensure filters are visible on list pages
@@ -2609,12 +2612,19 @@
         FilterManager.buildChips();
       }
 
-      const data = await APIClient.fetchList({ 
-        page: 1, 
-        ifEtag: cached?.etag || AppState.etag 
+      const data = await APIClient.fetchList({
+        page: 1,
+        ifEtag: cached?.etag || AppState.etag
       });
 
+      if (requestToken !== AppState.requestId) {
+        return;
+      }
+
       if (!data.ok) {
+        if (requestToken !== AppState.requestId) {
+          return;
+        }
         if (!cached) {
           if (!AppState.isOnline) {
             ErrorHandler.showError('You are offline. Please check your connection.', true);
@@ -2622,8 +2632,8 @@
             ErrorHandler.showError(data.error || 'Failed to load recipes.', true);
           }
         }
-      return;
-    }
+        return;
+      }
 
       if (!data.not_modified) {
         AppState.etag = data.etag || AppState.etag;
@@ -2858,6 +2868,7 @@
         Utils.setTitle();
         return Renderer.renderList(true);
       } else {
+        AppState.requestId = 0;
         // Detail page - completely hide filters
         if (filtersEl) {
           filtersEl.style.display = 'none';
