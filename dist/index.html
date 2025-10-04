@@ -1628,9 +1628,12 @@
       if (AppState.filter.q) url.searchParams.set('q', AppState.filter.q);
       if (AppState.filter.category) url.searchParams.set('category', AppState.filter.category);
 
+      if (ifEtag) {
+        url.searchParams.set('if_etag', ifEtag);
+      }
+
       // Remove If-None-Match header due to CORS restrictions
       try {
-        if (ifEtag) url.searchParams.set('if_etag', ifEtag);
         const res = await this.fetchWithRetry(url.toString(), {
           credentials: 'omit'
         });
@@ -1639,7 +1642,7 @@
 
         const data = await res.json().catch(() => ({ok: false}));
         if (data && data.ok) {
-        const newTag = res.headers.get('ETag') || data.etag || null;
+          const newTag = res.headers.get('ETag') || data.etag || null;
           return { ...data, etag: newTag };
         }
         return { ok: false, error: data?.error || 'Failed to load recipes.' };
