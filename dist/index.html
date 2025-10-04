@@ -2610,7 +2610,7 @@
 
     async renderDetail(slug) {
       const view = Utils.$('#view');
-      
+
       const filtersEl = Utils.$('#filters');
       if (filtersEl) {
         filtersEl.style.display = 'none';
@@ -2642,7 +2642,7 @@
       if (!response.ok || !response.post) {
         Utils.setTitle();
         ErrorHandler.showError('Recipe not found.', false);
-        return;
+        return null;
       }
 
       const recipe = response.post;
@@ -2728,6 +2728,7 @@
       `;
 
       Utils.announce(`Loaded recipe: ${recipe.name}`);
+      return recipe;
     }
   };
 
@@ -3027,20 +3028,19 @@ if ('serviceWorker' in navigator) {
     const R = window.ElixiaryApp.Renderer;
     const origDetail = R.renderDetail;
     R.renderDetail = async function(slug){
-      const out = await origDetail.call(R, slug);
+      const recipe = await origDetail.call(R, slug);
       try{
-        const resp = await window.ElixiaryApp.APIClient.fetchPost(slug);
-        if (resp?.ok && resp.post){
+        if (recipe && typeof gtag === 'function'){
           gtag('event', 'view_item', {
             items: [{
               item_id: String(slug),
-              item_name: resp.post.name || String(slug),
-              item_category: resp.post.category || ''
+              item_name: recipe.name || String(slug),
+              item_category: recipe.category || ''
             }]
           });
         }
       }catch(_){}
-      return out;
+      return recipe;
     };
   }
 
