@@ -135,7 +135,7 @@ function corsHeaders(env, origin) {
     'https://elixiary.com',
     'https://www.elixiary.com',
     'https://elixiary.web.app',
-    'https://*.web.app'
+    'https://elixiary--*.web.app'
   ];
 
   const raw = (env.ALLOWED_ORIGINS || '').trim();
