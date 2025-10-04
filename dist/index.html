@@ -2072,7 +2072,8 @@
         </svg>
       `.trim();
       
-      return `data:image/svg+xml;base64,${btoa(svg)}`;
+      const encodedSvg = btoa(unescape(encodeURIComponent(svg)));
+      return `data:image/svg+xml;base64,${encodedSvg}`;
     },
 
     getCategoryColor(category) {
