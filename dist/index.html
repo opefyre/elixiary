@@ -1462,7 +1462,12 @@
     observer: null,
     retryCount: 0,
     isOnline: navigator.onLine,
-    theme: 'light' 
+    theme: 'light',
+    schema: {
+      homeScript: null,
+      homeMarkup: '',
+      recipeScript: null
+    }
   };
 
   // ===== UTILITIES =====
@@ -1551,6 +1556,57 @@
     normalizePath: (value = '/') => {
       const slug = Utils.normalizeSlug(value);
       return slug ? `/${slug}` : '/';
+    },
+
+    ensureSchemaCache: () => {
+      const current = AppState.schema.homeScript;
+      if (!current || !document.contains(current)) {
+        const script = document.querySelector('script[type="application/ld+json"]:not([data-schema])');
+        if (script) {
+          AppState.schema.homeScript = script;
+          AppState.schema.homeMarkup = script.textContent || '';
+        }
+      }
+    },
+
+    applyRecipeSchema: (recipe) => {
+      if (!recipe) return;
+      Utils.ensureSchemaCache();
+
+      const recipeJsonLd = Utils.generateRecipeJsonLd(recipe);
+      if (!recipeJsonLd) return;
+
+      let { recipeScript, homeScript } = AppState.schema;
+
+      if (!recipeScript || !document.contains(recipeScript)) {
+        recipeScript = document.createElement('script');
+        recipeScript.type = 'application/ld+json';
+        recipeScript.setAttribute('data-schema', 'recipe');
+
+        if (homeScript && homeScript.parentNode) {
+          homeScript.parentNode.insertBefore(recipeScript, homeScript.nextSibling);
+        } else {
+          (document.head || document.body || document.documentElement).appendChild(recipeScript);
+        }
+
+        AppState.schema.recipeScript = recipeScript;
+      }
+
+      recipeScript.textContent = JSON.stringify(recipeJsonLd, null, 2);
+    },
+
+    restoreHomeSchema: () => {
+      Utils.ensureSchemaCache();
+
+      const { recipeScript, homeScript, homeMarkup } = AppState.schema;
+      if (recipeScript && recipeScript.parentNode) {
+        recipeScript.parentNode.removeChild(recipeScript);
+      }
+      AppState.schema.recipeScript = null;
+
+      if (homeScript && typeof homeMarkup === 'string') {
+        homeScript.textContent = homeMarkup;
+      }
     },
 
     generateRecipeJsonLd: (recipe) => {
@@ -2485,7 +2541,9 @@
   const Renderer = {
     async renderList(reset) {
       const view = Utils.$('#view');
-      
+
+      Utils.restoreHomeSchema();
+
       // Ensure filters are visible on list pages
       const filtersEl = Utils.$('#filters');
       if (filtersEl) {
@@ -2649,14 +2707,7 @@
       const recipe = response.post;
       Utils.setTitle(recipe.name || 'Recipe');
 
-      const existingScript = Utils.$('script[type="application/ld+json"]');
-      if (existingScript) {
-        const recipeJsonLd = Utils.generateRecipeJsonLd(recipe);
-        const newScript = document.createElement('script');
-        newScript.type = 'application/ld+json';
-        newScript.textContent = JSON.stringify(recipeJsonLd);
-        existingScript.parentNode.replaceChild(newScript, existingScript);
-      }
+      Utils.applyRecipeSchema(recipe);
 
       const escHTML = s => Utils.esc(String(s||'')).replace(/\n/g,'<br>');
       const ingredientsList = (recipe.ingredients || []).map(ing => 
