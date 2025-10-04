@@ -1519,6 +1519,33 @@
       }
     },
 
+    normalizeSlug: (value = '') => {
+      if (typeof value !== 'string') return '';
+      const trimmed = value.trim();
+      if (!trimmed) return '';
+
+      // Remove origin if a full URL is provided
+      let pathname = trimmed;
+      if (/^https?:\/\//i.test(trimmed)) {
+        try {
+          pathname = new URL(trimmed).pathname;
+        } catch (_) {
+          pathname = trimmed;
+        }
+      }
+
+      const stripped = pathname.replace(/^\/+|\/+$/g, '');
+      if (!stripped) return '';
+
+      // Collapse any duplicate slashes between segments
+      return stripped.split('/').filter(Boolean).join('/');
+    },
+
+    normalizePath: (value = '/') => {
+      const slug = Utils.normalizeSlug(value);
+      return slug ? `/${slug}` : '/';
+    },
+
     generateRecipeJsonLd: (recipe) => {
       return {
         "@context": "https://schema.org",
@@ -2083,7 +2110,7 @@
       
       if (!titleEl || !href) return null;
       
-      const slug = href.replace(/^\//, '');
+      const slug = Utils.normalizeSlug(href);
       const name = titleEl.textContent.trim();
       
       return { slug, name };
@@ -2673,25 +2700,24 @@
 
   // ===== ROUTER =====
   const Router = {
-init() {
-  window.addEventListener('popstate', () => {
-    this.render();
-    setTimeout(trackPageView, 0);
-  });
-  this.render();
-  setTimeout(trackPageView, 0); // initial load
-}
-,
+    init() {
+      window.addEventListener('popstate', () => {
+        this.render();
+        setTimeout(trackPageView, 0);
+      });
+      this.render();
+      setTimeout(trackPageView, 0); // initial load
+    },
 
-go(path) {
-  history.pushState({}, '', path);
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-  this.render();
-  // Track after content/title update
-  setTimeout(trackPageView, 0);
-  return false;
-}
-,
+    go(path) {
+      const normalizedPath = Utils.normalizePath(path);
+      history.pushState({}, '', normalizedPath);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      this.render();
+      // Track after content/title update
+      setTimeout(trackPageView, 0);
+      return false;
+    },
 
     render() {
       const year = new Date().getFullYear();
@@ -2701,9 +2727,9 @@ go(path) {
       // Clean up image observers before rendering new content
       ImageManager.cleanup();
 
-      const slug = location.pathname.replace(/^\/+/, '');
+      const slug = Utils.normalizeSlug(location.pathname);
       const filtersEl = Utils.$('#filters');
-      
+
       if (!slug) {
         // Home page - show filters
         if (filtersEl) filtersEl.style.display = 'block';
@@ -2803,7 +2829,7 @@ go(path) {
         KeyboardShortcuts.init();
         Router.init();
         
-        const slug = location.pathname.replace(/^\/+/, '');
+        const slug = Utils.normalizeSlug(location.pathname);
         const filtersEl = Utils.$('#filters');
         if (filtersEl) {
           filtersEl.style.display = slug ? 'none' : 'block';
