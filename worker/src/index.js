@@ -247,7 +247,7 @@ async function buildIndexFromSheet(env) {
   const range = `${env.SHEET_NAME}!A1:L`;
   const data = await fetchSheetValues(env, range);
   const values = data.values || [];
-  if (!values.length) return { rows: [], etag: await hashHex(API_VERSION + ':empty') };
+  if (!values.length) return { rows: [], etag: await hashHex(API_VERSION + ':empty'), _headerMap: {} };
 
   const header = values[0];
   const map = Object.fromEntries(header.map((h, i) => [canon(h), i]));
@@ -282,28 +282,39 @@ async function buildIndexFromSheet(env) {
   });
 
   const etag = await hashHex(API_VERSION + ':' + rows.length + ':' + rows.slice(0, 50).map(x => x.slug).join(','));
-  return { rows, etag };
+  return { rows, etag, _headerMap: map };
 }
 
-async function getIndex(env) {
+async function getIndex(env, opts = {}) {
   const ttl = Number(env.CACHE_TTL_SECONDS || 300);
-  const cached = await env.MIXOLOGY.get('idx_v1', { type: 'json' });
-  if (cached && cached.rows && cached.etag) return cached;
+  const forceRebuild = opts.forceRebuild === true;
+
+  if (!forceRebuild) {
+    const cached = await env.MIXOLOGY.get('idx_v1', { type: 'json' });
+    if (cached && cached.rows && cached.etag && cached._headerMap) return cached;
+  }
 
   const built = await buildIndexFromSheet(env);
   await env.MIXOLOGY.put('idx_v1', JSON.stringify(built), { expirationTtl: ttl });
   return built;
 }
 
-async function fetchRowFull(env, rowNumber) {
+async function fetchRowFull(env, rowNumber, headerMap = null) {
   const range = `${env.SHEET_NAME}!A${rowNumber}:L${rowNumber}`;
   const data = await fetchSheetValues(env, range);
   const values = data.values || [];
   if (!values.length) return null;
 
-  const head = await fetchSheetValues(env, `${env.SHEET_NAME}!A1:L1`);
-  const header = (head.values && head.values[0]) || [];
-  const map = Object.fromEntries(header.map((h, i) => [canon(h), i]));
+  let map = headerMap;
+  if (!map || !Object.keys(map).length) {
+    const idx = await getIndex(env);
+    map = idx._headerMap;
+    if (!map || !Object.keys(map).length) {
+      const head = await fetchSheetValues(env, `${env.SHEET_NAME}!A1:L1`);
+      const header = (head.values && head.values[0]) || [];
+      map = Object.fromEntries(header.map((h, i) => [canon(h), i]));
+    }
+  }
 
   const r = values[0];
   const name = r[map['name']];
@@ -391,10 +402,22 @@ async function handleList(qp, env) {
 }
 
 async function handlePost(slug, env) {
-  const idx = await getIndex(env);
+  let idx = await getIndex(env);
+  if (!idx._headerMap || !Object.keys(idx._headerMap).length) {
+    idx = await getIndex(env, { forceRebuild: true });
+  }
+
   const rec = idx.rows.find(p => p.slug.toLowerCase() === String(slug || '').toLowerCase());
   if (!rec) return { ok: false, code: 404, error: 'not_found' };
-  const post = await fetchRowFull(env, rec._row);
+
+  let headerMap = idx._headerMap;
+  if (!headerMap || !Object.keys(headerMap).length) {
+    const head = await fetchSheetValues(env, `${env.SHEET_NAME}!A1:L1`);
+    const header = (head.values && head.values[0]) || [];
+    headerMap = Object.fromEntries(header.map((h, i) => [canon(h), i]));
+  }
+
+  const post = await fetchRowFull(env, rec._row, headerMap);
   return { ok: true, post };
 }
 
