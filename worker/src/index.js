@@ -272,6 +272,7 @@ async function buildIndexFromSheet(env) {
   const tagIndex = Object.create(null);
   const moodIndex = Object.create(null);
   const tokenIndex = Object.create(null);
+  const slugIndexRefs = Object.create(null);
 
   for (let i = 1; i < values.length; i++) {
     const r = values[i];
@@ -303,6 +304,11 @@ async function buildIndexFromSheet(env) {
     };
 
     rows.push(row);
+
+    const slugLc = row.slug.toLowerCase();
+    if (!(slugLc in slugIndexRefs)) {
+      slugIndexRefs[slugLc] = row;
+    }
 
     if (row._category_lc) {
       if (!categoryIndex[row._category_lc]) categoryIndex[row._category_lc] = [];
@@ -358,9 +364,16 @@ async function buildIndexFromSheet(env) {
   const tagIndexOut = normalizeIndex(tagIndex);
   const moodIndexOut = normalizeIndex(moodIndex);
   const tokenIndexOut = normalizeIndex(tokenIndex);
+  const slugIndexOut = Object.create(null);
+  for (const [slugLc, row] of Object.entries(slugIndexRefs)) {
+    const pos = rowToIndex.get(row);
+    if (typeof pos === 'number') {
+      slugIndexOut[slugLc] = pos;
+    }
+  }
 
   const etag = await hashHex(API_VERSION + ':' + rows.length + ':' + rows.slice(0, 50).map(x => x.slug).join(','));
-  return { rows, etag, _headerMap: map, _categoryIndex: categoryIndexOut, _tagIndex: tagIndexOut, _moodIndex: moodIndexOut, _tokenIndex: tokenIndexOut };
+  return { rows, etag, _headerMap: map, _categoryIndex: categoryIndexOut, _tagIndex: tagIndexOut, _moodIndex: moodIndexOut, _tokenIndex: tokenIndexOut, _slugIndex: slugIndexOut };
 }
 
 let memoryIndex = null;
@@ -494,9 +507,13 @@ function addTokens(set, value) {
 
 function hasPrecomputedMaps(idx) {
   if (!idx || typeof idx !== 'object') return false;
-  const maps = ['_categoryIndex', '_tagIndex', '_moodIndex', '_tokenIndex'];
+  const maps = ['_categoryIndex', '_tagIndex', '_moodIndex', '_tokenIndex', '_slugIndex'];
   for (const key of maps) {
     if (!idx[key] || typeof idx[key] !== 'object') return false;
+  }
+  if (!idx._slugIndex || typeof idx._slugIndex !== 'object') return false;
+  for (const value of Object.values(idx._slugIndex)) {
+    if (!Number.isInteger(value)) return false;
   }
   return true;
 }
@@ -743,12 +760,22 @@ async function handleList(qp, env, ctx) {
 
 async function handlePost(slug, env, ctx) {
   let idx = await getIndex(env, ctx);
-  if (!idx._headerMap || !Object.keys(idx._headerMap).length) {
+  const hasHeader = idx._headerMap && Object.keys(idx._headerMap).length;
+  const hasSlugIndex = idx._slugIndex && typeof idx._slugIndex === 'object';
+  if (!hasHeader || !hasSlugIndex) {
     idx = await getIndex(env, ctx, { forceRebuild: true });
   }
 
-  const rec = idx.rows.find(p => p.slug.toLowerCase() === String(slug || '').toLowerCase());
-  if (!rec) return { ok: false, code: 404, error: 'not_found' };
+  const slugKey = String(slug || '').toLowerCase();
+  const rowIndex = idx._slugIndex && typeof idx._slugIndex === 'object' ? idx._slugIndex[slugKey] : undefined;
+  if (!Number.isInteger(rowIndex)) {
+    return { ok: false, code: 404, error: 'not_found' };
+  }
+
+  const rec = idx.rows[rowIndex];
+  if (!rec || String(rec.slug || '').toLowerCase() !== slugKey) {
+    return { ok: false, code: 404, error: 'not_found' };
+  }
 
   const cacheKey = `post_v1:${idx.etag}:${rec.slug}`;
   const cached = await env.MIXOLOGY.get(cacheKey, { type: 'json' });
