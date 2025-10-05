@@ -399,6 +399,7 @@ async function buildIndexFromSheet(env) {
   const tagIndexOut = normalizeIndex(tagIndex);
   const moodIndexOut = normalizeIndex(moodIndex);
   const tokenIndexOut = normalizeIndex(tokenIndex);
+  const { prefixIndex: tokenPrefixIndexOut, ngramIndex: tokenNgramIndexOut } = buildTokenAuxiliaryIndexes(tokenIndexOut);
   const slugIndexOut = Object.create(null);
   for (const [slugLc, row] of Object.entries(slugIndexRefs)) {
     const pos = rowToIndex.get(row);
@@ -408,7 +409,7 @@ async function buildIndexFromSheet(env) {
   }
 
   const etag = await hashHex(API_VERSION + ':' + rows.length + ':' + rows.slice(0, 50).map(x => x.slug).join(','));
-  return { rows, etag, _headerMap: map, _categoryIndex: categoryIndexOut, _tagIndex: tagIndexOut, _moodIndex: moodIndexOut, _tokenIndex: tokenIndexOut, _slugIndex: slugIndexOut };
+  return { rows, etag, _headerMap: map, _categoryIndex: categoryIndexOut, _tagIndex: tagIndexOut, _moodIndex: moodIndexOut, _tokenIndex: tokenIndexOut, _tokenPrefixIndex: tokenPrefixIndexOut, _tokenNgramIndex: tokenNgramIndexOut, _slugIndex: slugIndexOut };
 }
 
 let memoryIndex = null;
@@ -540,12 +541,121 @@ function addTokens(set, value) {
   }
 }
 
+function buildTokenAuxiliaryIndexes(tokenIndex) {
+  const prefixBuckets = new Map();
+  const ngramBuckets = new Map();
+
+  if (!tokenIndex || typeof tokenIndex !== 'object') {
+    return { prefixIndex: Object.create(null), ngramIndex: Object.create(null) };
+  }
+
+  const addToBucket = (bucket, key, values) => {
+    if (!key || !Array.isArray(values) || !values.length) return;
+    let set = bucket.get(key);
+    if (!set) {
+      set = new Set();
+      bucket.set(key, set);
+    }
+    for (const val of values) {
+      if (Number.isInteger(val)) {
+        set.add(val);
+      }
+    }
+  };
+
+  for (const [rawToken, indexList] of Object.entries(tokenIndex)) {
+    if (!Array.isArray(indexList) || !indexList.length) continue;
+    const token = String(rawToken || '').toLowerCase();
+    if (!token) continue;
+    const len = token.length;
+    if (!len) continue;
+
+    if (len === 1) {
+      addToBucket(prefixBuckets, token, indexList);
+    } else {
+      addToBucket(prefixBuckets, token.slice(0, 2), indexList);
+      if (len >= 3) addToBucket(prefixBuckets, token.slice(0, 3), indexList);
+    }
+
+    const maxNgram = Math.min(3, len);
+    const minNgram = 1;
+    const seenNgrams = new Set();
+    for (let size = maxNgram; size >= minNgram; size--) {
+      for (let i = 0; i <= len - size; i++) {
+        const key = token.slice(i, i + size);
+        if (!key) continue;
+        const dedupKey = `${size}:${key}`;
+        if (seenNgrams.has(dedupKey)) continue;
+        seenNgrams.add(dedupKey);
+        addToBucket(ngramBuckets, key, indexList);
+      }
+    }
+  }
+
+  const convertBuckets = (bucket) => {
+    const out = Object.create(null);
+    for (const [key, set] of bucket.entries()) {
+      if (!key || !set.size) continue;
+      out[key] = Array.from(set).sort((a, b) => a - b);
+    }
+    return out;
+  };
+
+  return {
+    prefixIndex: convertBuckets(prefixBuckets),
+    ngramIndex: convertBuckets(ngramBuckets)
+  };
+}
+
+function validateSortedIndexMap(map) {
+  if (!map || typeof map !== 'object') return false;
+  for (const value of Object.values(map)) {
+    if (!Array.isArray(value)) return false;
+    let prev = -Infinity;
+    for (const entry of value) {
+      if (!Number.isInteger(entry)) return false;
+      if (entry < prev) return false;
+      prev = entry;
+    }
+  }
+  return true;
+}
+
+function ensureTokenAuxIndexes(idx) {
+  if (!idx || typeof idx !== 'object' || !idx._tokenIndex || typeof idx._tokenIndex !== 'object') {
+    return false;
+  }
+
+  let prefixValid = validateSortedIndexMap(idx._tokenPrefixIndex);
+  let ngramValid = validateSortedIndexMap(idx._tokenNgramIndex);
+
+  if (prefixValid && ngramValid) {
+    return true;
+  }
+
+  const built = buildTokenAuxiliaryIndexes(idx._tokenIndex);
+  if (!prefixValid) {
+    idx._tokenPrefixIndex = built.prefixIndex;
+    prefixValid = validateSortedIndexMap(idx._tokenPrefixIndex);
+  }
+  if (!ngramValid) {
+    idx._tokenNgramIndex = built.ngramIndex;
+    ngramValid = validateSortedIndexMap(idx._tokenNgramIndex);
+  }
+
+  return prefixValid && ngramValid;
+}
+
 function hasPrecomputedMaps(idx) {
   if (!idx || typeof idx !== 'object') return false;
-  const maps = ['_categoryIndex', '_tagIndex', '_moodIndex', '_tokenIndex', '_slugIndex'];
-  for (const key of maps) {
+  const baseMaps = ['_categoryIndex', '_tagIndex', '_moodIndex', '_tokenIndex'];
+  for (const key of baseMaps) {
     if (!idx[key] || typeof idx[key] !== 'object') return false;
+    if (!validateSortedIndexMap(idx[key])) return false;
   }
+
+  if (!ensureTokenAuxIndexes(idx)) return false;
+
   if (!idx._slugIndex || typeof idx._slugIndex !== 'object') return false;
   for (const value of Object.values(idx._slugIndex)) {
     if (!Number.isInteger(value)) return false;
@@ -571,18 +681,69 @@ function tokenizeQuery(qRaw) {
 }
 
 function lookupTokenMatches(idx, token) {
-  if (!token || !idx || typeof idx._tokenIndex !== 'object') return [];
-  const direct = idx._tokenIndex[token];
+  const normalized = String(token || '').toLowerCase();
+  if (!normalized || !idx || typeof idx._tokenIndex !== 'object') return [];
+
+  const direct = idx._tokenIndex[normalized];
   if (Array.isArray(direct) && direct.length) {
     return direct;
   }
-  const fallback = new Set();
-  for (const [existing, arr] of Object.entries(idx._tokenIndex || {})) {
-    if (existing.includes(token)) {
-      for (const val of arr) fallback.add(val);
+
+  if (!ensureTokenAuxIndexes(idx)) return [];
+
+  const groups = [];
+  const prefixIndex = idx._tokenPrefixIndex || {};
+  const ngramIndex = idx._tokenNgramIndex || {};
+
+  if (normalized.length === 1) {
+    const singlePrefix = prefixIndex[normalized];
+    if (Array.isArray(singlePrefix) && singlePrefix.length) {
+      groups.push(singlePrefix);
+    }
+  } else {
+    const prefix2 = normalized.slice(0, 2);
+    const arr2 = prefixIndex[prefix2];
+    if (Array.isArray(arr2) && arr2.length) {
+      groups.push(arr2);
+    }
+    if (normalized.length >= 3) {
+      const prefix3 = normalized.slice(0, 3);
+      const arr3 = prefixIndex[prefix3];
+      if (Array.isArray(arr3) && arr3.length) {
+        groups.push(arr3);
+      }
     }
   }
-  return fallback.size ? Array.from(fallback).sort((a, b) => a - b) : [];
+
+  const maxLen = Math.min(3, normalized.length);
+  const minLen = normalized.length === 1 ? 1 : Math.min(2, normalized.length);
+  const ngramKeys = new Set();
+  for (let size = maxLen; size >= minLen; size--) {
+    for (let i = 0; i <= normalized.length - size; i++) {
+      const key = normalized.slice(i, i + size);
+      if (key) ngramKeys.add(key);
+    }
+  }
+
+  for (const key of ngramKeys) {
+    const arr = ngramIndex[key];
+    if (Array.isArray(arr) && arr.length) {
+      groups.push(arr);
+    }
+  }
+
+  if (!groups.length) {
+    return [];
+  }
+
+  groups.sort((a, b) => a.length - b.length);
+  let current = groups[0];
+
+  for (let i = 1; i < groups.length && current.length; i++) {
+    current = intersectSortedArrays(current, groups[i]);
+  }
+
+  return current;
 }
 
 function intersectSortedArrays(a, b) {
