@@ -83,7 +83,13 @@
 
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
-    if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').catch(()=>{}); }
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations()
+        .then((regs) => {
+          for (const reg of regs) reg.unregister();
+        })
+        .catch(() => {});
+    }
     function sendMailto(e){
       e.preventDefault();
       const n = encodeURIComponent(document.getElementById('name').value.trim());
