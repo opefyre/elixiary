@@ -1149,6 +1149,7 @@
     .footer {
       margin-top: 80px;
       margin-bottom: 0;
+      padding: 0;
     }
     
     .footer-cover {
@@ -1158,17 +1159,20 @@
       max-height: 600px;
       overflow: hidden;
     }
-    
+
     .cover-image-container {
       position: relative;
       width: 100%;
       height: 100%;
+      overflow: hidden;
     }
-    
+
     .cover-img {
       width: 100%;
       height: 100%;
+      display: block;
       object-fit: cover;
+      object-position: center;
       filter: grayscale(100%) contrast(1.2);
       transition: all 0.8s ease;
     }
