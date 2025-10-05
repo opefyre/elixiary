@@ -78,7 +78,13 @@
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
     document.getElementById('updated').textContent = new Date().toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
-    if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').catch(()=>{}); }
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations()
+        .then((regs) => {
+          for (const reg of regs) reg.unregister();
+        })
+        .catch(() => {});
+    }
   </script>
 </body>
 </html>
