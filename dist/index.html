@@ -1950,6 +1950,10 @@
     imageCache: new Map(), // Cache for loaded images
     urlCache: new Map(), // Cache for converted URLs
     persistentCache: null, // Persistent localStorage cache
+    sizes: {
+      thumb: 'w400-h400',
+      detail: 'w1200-h1200'
+    },
     
     // Initialize persistent image cache
     initPersistentCache() {
@@ -1982,11 +1986,15 @@
       this.savePersistentCache();
     },
 
-    convertToDirectImageUrl(url) {
+    convertToDirectImageUrl(url, size) {
       if (!url) return url;
-      
-      if (this.urlCache.has(url)) {
-        return this.urlCache.get(url);
+
+      const targetSize = size || this.sizes?.detail || 'w1200-h1200';
+      const normalizedSize = targetSize.includes('-c') ? targetSize : `${targetSize}-c`;
+      const cacheKey = `${url}|${normalizedSize}`;
+
+      if (this.urlCache.has(cacheKey)) {
+        return this.urlCache.get(cacheKey);
       }
       
       let fileId = null;
@@ -2009,11 +2017,20 @@
       let convertedUrl = url;
       if (fileId) {
         // Try the most reliable format for embedding
-        convertedUrl = `https://lh3.googleusercontent.com/d/${fileId}=w1200-h1200-c`;
+        convertedUrl = `https://lh3.googleusercontent.com/d/${fileId}=${normalizedSize}`;
+      } else if (url.includes('lh3.googleusercontent.com')) {
+        const [base, query] = url.split('?');
+        let rebuiltBase = base;
+        if (base.includes('=')) {
+          rebuiltBase = base.replace(/=.*/, `=${normalizedSize}`);
+        } else {
+          rebuiltBase = `${base}=${normalizedSize}`;
+        }
+        convertedUrl = query ? `${rebuiltBase}?${query}` : rebuiltBase;
       }
-      
+
       // Cache the converted URL
-      this.urlCache.set(url, convertedUrl);
+      this.urlCache.set(cacheKey, convertedUrl);
       return convertedUrl;
     },
     
@@ -2041,30 +2058,32 @@
       return url;
     },
     
-    loadImageWithBlurEffect(img, imageUrl) {
+    loadImageWithBlurEffect(img, imageUrl, size) {
       const thumbRail = img.closest('.thumb-rail');
       if (thumbRail) {
         thumbRail.classList.add('skeleton');
       }
-      
+
       img.classList.add('loading');
-      
+
       const tempImg = new Image();
-      
+      const targetSize = size || this.sizes?.detail || 'w1200-h1200';
+      const sizedImageUrl = this.convertToDirectImageUrl(imageUrl, targetSize);
+
       tempImg.onload = () => {
-        img.src = imageUrl;
+        img.src = sizedImageUrl;
         img.classList.remove('loading');
         img.classList.add('loaded');
-        
+
         if (thumbRail) {
           thumbRail.classList.remove('skeleton');
         }
-        
+
         if (img.recipeData) {
-          this.cacheImageUrl(img.recipeData.slug, imageUrl);
+          this.cacheImageUrl(img.recipeData.slug, sizedImageUrl);
         }
       };
-      
+
       tempImg.onerror = () => {
         img.classList.remove('loading');
         if (thumbRail) {
@@ -2072,12 +2091,15 @@
         }
         this.handleImageError(img);
       };
-      
-      tempImg.src = imageUrl;
+
+      tempImg.src = sizedImageUrl;
+
+      return sizedImageUrl;
     },
     
     async loadRealImage(img, recipe) {
-      
+
+      const thumbSize = this.sizes?.thumb || 'w400-h400';
       const persistentImageUrl = this.getCachedImageUrl(recipe.slug);
       if (persistentImageUrl) {
         const thumbRail = img.closest('.thumb-rail');
@@ -2085,7 +2107,12 @@
           thumbRail.classList.add('skeleton');
         }
         
-        img.src = persistentImageUrl;
+        const sizedPersistentUrl = this.convertToDirectImageUrl(persistentImageUrl, thumbSize);
+        if (sizedPersistentUrl !== persistentImageUrl) {
+          this.cacheImageUrl(recipe.slug, sizedPersistentUrl);
+        }
+
+        img.src = sizedPersistentUrl;
         img.classList.add('loaded');
         img.dataset.realImage = 'loaded';
         
@@ -2103,25 +2130,10 @@
         const cachedData = this.imageCache.get(cacheKey);
         console.log(`📦 Found memory cached data for ${recipe.name}:`, cachedData);
         if (cachedData.image_url || cachedData.image_thumb) {
-          const directUrl = this.convertToDirectImageUrl(cachedData.image_url || cachedData.image_thumb);
-          
-          const thumbRail = img.closest('.thumb-rail');
-          if (thumbRail) {
-            thumbRail.classList.add('skeleton');
-          }
-          
-          img.src = directUrl;
-          img.classList.add('loaded');
+          const sizedUrl = this.loadImageWithBlurEffect(img, cachedData.image_url || cachedData.image_thumb, thumbSize);
           img.dataset.realImage = 'loaded';
-          this.cacheImageUrl(recipe.slug, directUrl); // Save to persistent cache
-          
-          setTimeout(() => {
-            if (thumbRail) {
-              thumbRail.classList.remove('skeleton');
-            }
-          }, 100);
-          
-          console.log(`✅ Applied memory cached image for ${recipe.name}`);
+
+          console.log(`✅ Applied memory cached image for ${recipe.name}: ${sizedUrl}`);
         }
         return;
       }
@@ -2135,10 +2147,9 @@
           image_thumb: recipe.image_thumb || null
         });
 
-        const directImageUrl = this.convertToDirectImageUrl(listImageUrl);
-        console.log(`🔄 Converted list URL for ${recipe.name}: ${directImageUrl}`);
+        const sizedUrl = this.loadImageWithBlurEffect(img, listImageUrl, thumbSize);
+        console.log(`🔄 Converted list URL for ${recipe.name}: ${sizedUrl}`);
 
-        this.loadImageWithBlurEffect(img, directImageUrl);
         img.dataset.realImage = 'loaded';
         return;
       }
@@ -2160,12 +2171,10 @@
           if (realImageUrl) {
             console.log(`🖼️ Testing image load for ${recipe.name}: ${realImageUrl}`);
 
-            const directImageUrl = this.convertToDirectImageUrl(realImageUrl);
-            console.log(`🔄 Converted URL: ${directImageUrl}`);
+            const sizedUrl = this.loadImageWithBlurEffect(img, realImageUrl, thumbSize);
+            console.log(`🔄 Converted URL: ${sizedUrl}`);
 
-            this.loadImageWithBlurEffect(img, directImageUrl);
             img.dataset.realImage = 'loaded';
-            this.cacheImageUrl(recipe.slug, directImageUrl); // Cache the working URL
             console.log(`✅ Successfully loaded image for ${recipe.name}`);
           } else {
             console.warn(`⚠️ No image URL found for ${recipe.name}`);
@@ -2837,11 +2846,15 @@
         `<span class="pill">${Utils.esc(Utils.labelize(mood))}</span>`
       ).join('');
 
-      const imageSection = (recipe.image_url || recipe.image_thumb) ? `
+      const rawImageUrl = recipe.image_url || recipe.image_thumb;
+      const detailImageUrl = rawImageUrl ? ImageManager.convertToDirectImageUrl(rawImageUrl, ImageManager.sizes?.detail) : null;
+      const detailFallbackUrl = recipe.image_thumb ? ImageManager.convertToDirectImageUrl(recipe.image_thumb, ImageManager.sizes?.thumb) : '';
+
+      const imageSection = rawImageUrl ? `
         <div class="detail-rail">
           <img class="detail-img"
-               src="${Utils.esc(recipe.image_url || recipe.image_thumb)}"
-               data-alt="${Utils.esc(recipe.image_thumb || '')}" 
+               src="${Utils.esc(detailImageUrl || rawImageUrl)}"
+               data-alt="${Utils.esc(detailFallbackUrl || '')}"
                alt="${Utils.esc(recipe.name||'')}"
                onload="if(!this.naturalWidth||!this.naturalHeight){ this.onerror(); }"
                onerror="ImageManager.handleImageError(this)">
