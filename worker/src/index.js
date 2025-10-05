@@ -275,6 +275,12 @@ async function buildIndexFromSheet(env) {
     });
   }
 
+  rows.sort((a, b) => {
+    const dateCmp = String(b.date || '').localeCompare(String(a.date || ''));
+    if (dateCmp !== 0) return dateCmp;
+    return a.slug.localeCompare(b.slug);
+  });
+
   const etag = await hashHex(API_VERSION + ':' + rows.length + ':' + rows.slice(0, 50).map(x => x.slug).join(','));
   return { rows, etag };
 }
@@ -348,8 +354,6 @@ function filterIndex(rows, qRaw, tag, cat, mood) {
   if (tag)  out = out.filter(p => (p.tags || []).map(t => t.toLowerCase()).includes(tag.toLowerCase()));
   if (cat)  out = out.filter(p => String(p.category || '').toLowerCase() === cat.toLowerCase());
   if (mood) out = out.filter(p => (p.mood_labels || []).map(m => m.toLowerCase()).includes(mood.toLowerCase()));
-  // newest first by date (lexicographic ISO)
-  out = out.slice().sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
   return out;
 }
 
