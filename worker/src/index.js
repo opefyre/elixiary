@@ -702,41 +702,14 @@ async function handleList(qp, env, ctx) {
   const sliceIndexes = (start < total) ? filteredIndexes.slice(start, end) : [];
   const posts = sliceIndexes.map(i => serializeRow(idx.rows[i]));
 
-  let categories = [];
-  if (hasPrecomputedMaps(idx)) {
-    const filteredSet = new Set(filteredIndexes);
-    const entries = [];
-    for (const [catLc, arr] of Object.entries(idx._categoryIndex || {})) {
-      let min = Infinity;
-      for (const idxVal of arr) {
-        if (filteredSet.has(idxVal) && idxVal < min) {
-          min = idxVal;
-        }
-      }
-      if (min !== Infinity) {
-        const labelSource = idx.rows[arr[0]] || idx.rows[min];
-        const label = labelSource && labelSource.category;
-        if (label) entries.push({ label, min });
-      }
-    }
-    entries.sort((a, b) => a.min - b.min);
-    const seen = new Set();
-    categories = entries.reduce((acc, entry) => {
-      if (!seen.has(entry.label)) {
-        seen.add(entry.label);
-        acc.push(entry.label);
-      }
-      return acc;
-    }, []);
-  } else {
-    const seenCategories = new Set();
-    for (const idxVal of filteredIndexes) {
-      const row = idx.rows[idxVal];
-      const categoryValue = row && row.category;
-      if (categoryValue && !seenCategories.has(categoryValue)) {
-        seenCategories.add(categoryValue);
-        categories.push(categoryValue);
-      }
+  const categories = [];
+  const seenCategories = new Set();
+  for (const idxVal of filteredIndexes) {
+    const row = idx.rows[idxVal];
+    const categoryValue = row && row.category;
+    if (categoryValue && !seenCategories.has(categoryValue)) {
+      seenCategories.add(categoryValue);
+      categories.push(categoryValue);
     }
   }
 
