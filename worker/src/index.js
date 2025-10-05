@@ -276,23 +276,42 @@ async function buildIndexFromSheet(env) {
 
   for (let i = 1; i < values.length; i++) {
     const r = values[i];
-    const name = r[map['name']];
+    const cell = (key) => {
+      const idx = map[key];
+      return (typeof idx === 'number') ? r[idx] : undefined;
+    };
+
+    const name = cell('name');
     const slug = slugify(name || '');
     if (!slug) continue;
 
-    const img = driveImageLinks(r[map['image_url']]);
-    const category = String((r[map['category']] || ''));
-    const tags = splitCSV(r[map['tags']]);
-    const moods = splitCSV(r[map['moodlabels']] || r[map['mood_labels']]);
+    const img = driveImageLinks(cell('imageurl') || cell('image_url'));
+    const category = String((cell('category') || ''));
+    const tags = splitCSV(cell('tags'));
+    const moods = splitCSV(cell('moodlabels') || cell('mood_labels'));
+    const prepTime = String((cell('preptime') || cell('prep_time') || ''));
+    const difficulty = String((cell('difficulty') || ''));
+    const date = toDateISO(cell('date'));
+
+    let ingredients = [];
+    try {
+      const rawIngredients = cell('ingredientsjson') || cell('ingredients_json');
+      ingredients = rawIngredients ? JSON.parse(rawIngredients) : [];
+      if (!Array.isArray(ingredients)) ingredients = [];
+    } catch { ingredients = []; }
+
+    const instructions = String(cell('instructions') || '');
+    const glass = String(cell('glass') || '');
+    const garnish = String(cell('garnish') || '');
 
     const row = {
       _row: i + 1,
       slug,
       name: String(name || ''),
-      date: toDateISO(r[map['date']]),
+      date,
       category,
-      difficulty: String((r[map['difficulty']] || '')),
-      prep_time: String((r[map['preptime']] || r[map['prep_time']] || '')),
+      difficulty,
+      prep_time: prepTime,
       tags,
       mood_labels: moods,
       image_url: img.src,
@@ -300,7 +319,23 @@ async function buildIndexFromSheet(env) {
       _name_lc: String(name || '').toLowerCase(),
       _tags_lc: tags.map(t => String(t || '').toLowerCase()),
       _moods_lc: moods.map(m => String(m || '').toLowerCase()),
-      _category_lc: category.toLowerCase()
+      _category_lc: category.toLowerCase(),
+      _details: {
+        slug,
+        name: String(name || ''),
+        ingredients,
+        mood_labels: moods,
+        tags,
+        category,
+        instructions,
+        glass,
+        garnish,
+        prep_time: prepTime,
+        difficulty,
+        image_url: img.src,
+        image_thumb: img.thumb,
+        date
+      }
     };
 
     rows.push(row);
@@ -774,6 +809,17 @@ async function handlePost(slug, env, ctx) {
     return { ok: true, post: cached.post };
   }
 
+  if (rec._details && typeof rec._details === 'object') {
+    const post = { ...rec._details };
+    const ttl = Number(env.CACHE_TTL_SECONDS || 300);
+    const expirationTtl = Math.max(60, ttl + 30);
+    const putPost = env.MIXOLOGY.put(cacheKey, JSON.stringify({ etag: idx.etag, post }), {
+      expirationTtl
+    });
+    scheduleBackground(ctx, putPost, 'post_cache_write');
+    return { ok: true, post };
+  }
+
   let headerMap = idx._headerMap;
   if (!headerMap || !Object.keys(headerMap).length) {
     const head = await fetchSheetValues(env, `${env.SHEET_NAME}!A1:L1`);
@@ -783,6 +829,8 @@ async function handlePost(slug, env, ctx) {
 
   const post = await fetchRowFull(env, rec._row, headerMap, ctx);
   if (!post) return { ok: false, code: 404, error: 'not_found' };
+
+  rec._details = post;
 
   const ttl = Number(env.CACHE_TTL_SECONDS || 300);
   const expirationTtl = Math.max(60, ttl + 30);
