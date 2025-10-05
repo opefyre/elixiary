@@ -57,6 +57,8 @@ export default {
         const mapKey = `${ip}:${bucket}`;
         const bucketExpiresAt = (bucket + 1) * windowSec * 1000;
 
+        pruneRateLimitMemory(now);
+
         let entry = rateLimitMemory.get(mapKey);
         if (entry && entry.expiresAt <= now) {
           rateLimitMemory.delete(mapKey);
@@ -95,6 +97,8 @@ export default {
 
         entry.count = count + 1;
         rateLimitMemory.set(mapKey, entry);
+
+        scheduleRateLimitPrune(now, ctx);
 
         // KV writes act as a cross-isolate safety net; the in-memory counter is
         // eventually consistent and prioritizes fewer writes per bucket window.
@@ -192,6 +196,14 @@ let listMemoryCacheLastFiltersCleared = true;
 // Module-scoped rate limit cache keyed by `ip:bucket`
 const rateLimitMemory = new Map();
 const RATE_LIMIT_SYNC_STEP = 5;
+const RATE_LIMIT_MEMORY_PRUNE_STEP = 20;
+const RATE_LIMIT_MEMORY_PRUNE_THRESHOLD = 256;
+const RATE_LIMIT_MEMORY_PRUNE_MAX_BATCHES = 5;
+const RATE_LIMIT_MEMORY_PRUNE_MIN_INTERVAL = 5000;
+let rateLimitMemorySweepIterator = null;
+let rateLimitMemoryPruneScheduled = false;
+let rateLimitMemoryWasAboveThreshold = false;
+let rateLimitMemoryLastPruneAt = 0;
 
 // CORS with wildcard support (e.g. https://*.web.app)
 function corsHeaders(env, origin) {
@@ -268,6 +280,86 @@ function scheduleBackground(ctx, promise, label) {
   } else {
     promise.catch(handleError);
   }
+}
+
+function pruneRateLimitMemory(now, limit = RATE_LIMIT_MEMORY_PRUNE_STEP) {
+  if (!rateLimitMemory.size || limit <= 0) return 0;
+
+  if (!rateLimitMemorySweepIterator) {
+    rateLimitMemorySweepIterator = rateLimitMemory.keys();
+  }
+
+  let processed = 0;
+  let pruned = 0;
+
+  while (processed < limit) {
+    let next = rateLimitMemorySweepIterator.next();
+    if (next.done) {
+      rateLimitMemorySweepIterator = rateLimitMemory.keys();
+      next = rateLimitMemorySweepIterator.next();
+      if (next.done) {
+        rateLimitMemorySweepIterator = null;
+        break;
+      }
+    }
+
+    processed++;
+    const key = next.value;
+    const entry = rateLimitMemory.get(key);
+    if (!entry) continue;
+    if (entry.expiresAt <= now) {
+      rateLimitMemory.delete(key);
+      pruned++;
+    }
+  }
+
+  if (!rateLimitMemory.size) {
+    rateLimitMemorySweepIterator = null;
+  }
+
+  return pruned;
+}
+
+function scheduleRateLimitPrune(now, ctx) {
+  const size = rateLimitMemory.size;
+  if (size <= RATE_LIMIT_MEMORY_PRUNE_THRESHOLD) {
+    rateLimitMemoryWasAboveThreshold = false;
+    return;
+  }
+
+  const crossedThreshold = !rateLimitMemoryWasAboveThreshold;
+  rateLimitMemoryWasAboveThreshold = true;
+
+  if (!crossedThreshold && (now - rateLimitMemoryLastPruneAt) < RATE_LIMIT_MEMORY_PRUNE_MIN_INTERVAL) {
+    return;
+  }
+
+  if (rateLimitMemoryPruneScheduled) {
+    return;
+  }
+
+  rateLimitMemoryPruneScheduled = true;
+  rateLimitMemoryLastPruneAt = now;
+
+  const cleanup = (async () => {
+    try {
+      let batches = 0;
+      while (batches < RATE_LIMIT_MEMORY_PRUNE_MAX_BATCHES
+        && rateLimitMemory.size > RATE_LIMIT_MEMORY_PRUNE_THRESHOLD) {
+        const pruned = pruneRateLimitMemory(Date.now(), RATE_LIMIT_MEMORY_PRUNE_STEP * 4);
+        batches++;
+        if (pruned === 0) break;
+      }
+    } finally {
+      rateLimitMemoryPruneScheduled = false;
+      rateLimitMemoryWasAboveThreshold = rateLimitMemory.size > RATE_LIMIT_MEMORY_PRUNE_THRESHOLD;
+      if (!rateLimitMemory.size) {
+        rateLimitMemorySweepIterator = null;
+      }
+    }
+  })();
+
+  scheduleBackground(ctx, cleanup, 'rate_limit_prune');
 }
 function canon(s) { return String(s || '').replace(/\uFEFF/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ''); }
 function splitCSV(s) { return String(s || '').split(',').map(x => x.trim()).filter(Boolean); }
