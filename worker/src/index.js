@@ -264,6 +264,10 @@ async function buildIndexFromSheet(env) {
   const header = values[0];
   const map = Object.fromEntries(header.map((h, i) => [canon(h), i]));
   const rows = [];
+  const categoryIndex = Object.create(null);
+  const tagIndex = Object.create(null);
+  const moodIndex = Object.create(null);
+  const tokenIndex = Object.create(null);
 
   for (let i = 1; i < values.length; i++) {
     const r = values[i];
@@ -276,7 +280,7 @@ async function buildIndexFromSheet(env) {
     const tags = splitCSV(r[map['tags']]);
     const moods = splitCSV(r[map['moodlabels']] || r[map['mood_labels']]);
 
-    rows.push({
+    const row = {
       _row: i + 1,
       slug,
       name: String(name || ''),
@@ -292,7 +296,33 @@ async function buildIndexFromSheet(env) {
       _tags_lc: tags.map(t => String(t || '').toLowerCase()),
       _moods_lc: moods.map(m => String(m || '').toLowerCase()),
       _category_lc: category.toLowerCase()
-    });
+    };
+
+    rows.push(row);
+
+    if (row._category_lc) {
+      if (!categoryIndex[row._category_lc]) categoryIndex[row._category_lc] = [];
+      categoryIndex[row._category_lc].push(row);
+    }
+
+    for (const t of row._tags_lc) {
+      if (!tagIndex[t]) tagIndex[t] = [];
+      tagIndex[t].push(row);
+    }
+
+    for (const m of row._moods_lc) {
+      if (!moodIndex[m]) moodIndex[m] = [];
+      moodIndex[m].push(row);
+    }
+
+    const tokens = new Set();
+    addTokens(tokens, row._name_lc);
+    for (const tag of row._tags_lc) addTokens(tokens, tag);
+    for (const mood of row._moods_lc) addTokens(tokens, mood);
+    for (const token of tokens) {
+      if (!tokenIndex[token]) tokenIndex[token] = [];
+      tokenIndex[token].push(row);
+    }
   }
 
   rows.sort((a, b) => {
@@ -301,8 +331,32 @@ async function buildIndexFromSheet(env) {
     return a.slug.localeCompare(b.slug);
   });
 
+  const rowToIndex = new Map();
+  rows.forEach((row, idx) => rowToIndex.set(row, idx));
+
+  const normalizeIndex = (map) => {
+    const out = Object.create(null);
+    for (const [key, list] of Object.entries(map)) {
+      if (!key) continue;
+      const idxSet = new Set();
+      for (const row of list) {
+        const pos = rowToIndex.get(row);
+        if (typeof pos === 'number') idxSet.add(pos);
+      }
+      if (idxSet.size) {
+        out[key] = Array.from(idxSet).sort((a, b) => a - b);
+      }
+    }
+    return out;
+  };
+
+  const categoryIndexOut = normalizeIndex(categoryIndex);
+  const tagIndexOut = normalizeIndex(tagIndex);
+  const moodIndexOut = normalizeIndex(moodIndex);
+  const tokenIndexOut = normalizeIndex(tokenIndex);
+
   const etag = await hashHex(API_VERSION + ':' + rows.length + ':' + rows.slice(0, 50).map(x => x.slug).join(','));
-  return { rows, etag, _headerMap: map };
+  return { rows, etag, _headerMap: map, _categoryIndex: categoryIndexOut, _tagIndex: tagIndexOut, _moodIndex: moodIndexOut, _tokenIndex: tokenIndexOut };
 }
 
 let memoryIndex = null;
@@ -317,13 +371,13 @@ async function getIndex(env, ctx, opts = {}) {
   const forceRebuild = opts.forceRebuild === true;
   const now = Date.now();
 
-  if (!forceRebuild && memoryIndex && memoryIndexExpiry && now < memoryIndexExpiry) {
+  if (!forceRebuild && memoryIndex && memoryIndexExpiry && now < memoryIndexExpiry && hasPrecomputedMaps(memoryIndex)) {
     return memoryIndex;
   }
 
   if (!forceRebuild) {
     const cached = await env.MIXOLOGY.get('idx_v1', { type: 'json' });
-    if (cached && cached.rows && cached.etag && cached._headerMap) {
+    if (cached && cached.rows && cached.etag && cached._headerMap && hasPrecomputedMaps(cached)) {
       memoryIndex = cached;
       memoryIndexExpiry = Date.now() + ttlMs;
       return cached;
@@ -424,6 +478,25 @@ function ensureLowercaseFields(row) {
   return row;
 }
 
+function addTokens(set, value) {
+  const str = String(value || '').toLowerCase();
+  if (!str) return;
+  const matches = str.match(/[a-z0-9]+/g);
+  if (!matches) return;
+  for (const token of matches) {
+    if (token) set.add(token);
+  }
+}
+
+function hasPrecomputedMaps(idx) {
+  if (!idx || typeof idx !== 'object') return false;
+  const maps = ['_categoryIndex', '_tagIndex', '_moodIndex', '_tokenIndex'];
+  for (const key of maps) {
+    if (!idx[key] || typeof idx[key] !== 'object') return false;
+  }
+  return true;
+}
+
 function serializeRow(row) {
   const out = {};
   for (const [key, value] of Object.entries(row)) {
@@ -434,30 +507,99 @@ function serializeRow(row) {
   return out;
 }
 
-function filterIndex(rows, qRaw, tag, cat, mood) {
-  let out = rows;
-  if (qRaw) {
-    const q = qRaw.toLowerCase();
-    out = out.filter(p => {
-      const row = ensureLowercaseFields(p);
-      return row._name_lc.includes(q)
-        || row._tags_lc.some(t => t.includes(q))
-        || row._moods_lc.some(m => m.includes(q));
-    });
+function tokenizeQuery(qRaw) {
+  const q = String(qRaw || '').toLowerCase();
+  if (!q) return [];
+  const parts = q.match(/[a-z0-9]+/g);
+  return parts ? parts.filter(Boolean) : [];
+}
+
+function lookupTokenMatches(idx, token) {
+  if (!token || !idx || typeof idx._tokenIndex !== 'object') return [];
+  const direct = idx._tokenIndex[token];
+  if (Array.isArray(direct) && direct.length) {
+    return direct;
   }
-  if (tag) {
-    const tagLc = tag.toLowerCase();
-    out = out.filter(p => ensureLowercaseFields(p)._tags_lc.includes(tagLc));
+  const fallback = new Set();
+  for (const [existing, arr] of Object.entries(idx._tokenIndex || {})) {
+    if (existing.includes(token)) {
+      for (const val of arr) fallback.add(val);
+    }
   }
+  return fallback.size ? Array.from(fallback) : [];
+}
+
+function filterIndex(idx, qRaw, tag, cat, mood) {
+  const rows = (idx && Array.isArray(idx.rows)) ? idx.rows : [];
+  const hasMaps = hasPrecomputedMaps(idx);
+
+  if (!hasMaps) {
+    const matches = [];
+    const q = String(qRaw || '').toLowerCase();
+    const tagLc = String(tag || '').toLowerCase();
+    const catLc = String(cat || '').toLowerCase();
+    const moodLc = String(mood || '').toLowerCase();
+    for (let i = 0; i < rows.length; i++) {
+      const row = ensureLowercaseFields(rows[i]);
+      if (q) {
+        const inName = row._name_lc.includes(q);
+        const inTags = row._tags_lc.some(t => t.includes(q));
+        const inMoods = row._moods_lc.some(mo => mo.includes(q));
+        if (!inName && !inTags && !inMoods) continue;
+      }
+      if (tagLc && !row._tags_lc.includes(tagLc)) continue;
+      if (catLc && row._category_lc !== catLc) continue;
+      if (moodLc && !row._moods_lc.includes(moodLc)) continue;
+      matches.push(i);
+    }
+    return matches;
+  }
+
+  const groups = [];
+  const lc = (s) => String(s || '').toLowerCase();
+
   if (cat) {
-    const catLc = cat.toLowerCase();
-    out = out.filter(p => ensureLowercaseFields(p)._category_lc === catLc);
+    const arr = idx._categoryIndex[lc(cat)] || [];
+    if (!arr.length) return [];
+    groups.push(arr);
   }
+
+  if (tag) {
+    const arr = idx._tagIndex[lc(tag)] || [];
+    if (!arr.length) return [];
+    groups.push(arr);
+  }
+
   if (mood) {
-    const moodLc = mood.toLowerCase();
-    out = out.filter(p => ensureLowercaseFields(p)._moods_lc.includes(moodLc));
+    const arr = idx._moodIndex[lc(mood)] || [];
+    if (!arr.length) return [];
+    groups.push(arr);
   }
-  return out;
+
+  const tokens = tokenizeQuery(qRaw);
+  for (const token of tokens) {
+    const arr = lookupTokenMatches(idx, token);
+    if (!arr.length) return [];
+    groups.push(arr);
+  }
+
+  if (!groups.length) {
+    return rows.map((_, i) => i);
+  }
+
+  groups.sort((a, b) => a.length - b.length);
+  let current = new Set(groups[0]);
+
+  for (let i = 1; i < groups.length; i++) {
+    const next = groups[i];
+    const nextSet = new Set(next);
+    for (const val of Array.from(current)) {
+      if (!nextSet.has(val)) current.delete(val);
+    }
+    if (!current.size) break;
+  }
+
+  return Array.from(current).sort((a, b) => a - b);
 }
 
 async function handleList(qp, env, ctx) {
@@ -478,20 +620,48 @@ async function handleList(qp, env, ctx) {
     return { ok: true, etag: idx.etag, not_modified: true, total: idx.rows.length, page: 1, page_size: size };
   }
 
-  const filtered = filterIndex(idx.rows, q, tag, cat, mood);
-  const total = filtered.length;
+  const filteredIndexes = filterIndex(idx, q, tag, cat, mood);
+  const total = filteredIndexes.length;
   const start = (page - 1) * size;
   const end   = Math.min(start + size, total);
-  const slice = (start < total) ? filtered.slice(start, end) : [];
-  const posts = slice.map(serializeRow);
+  const sliceIndexes = (start < total) ? filteredIndexes.slice(start, end) : [];
+  const posts = sliceIndexes.map(i => serializeRow(idx.rows[i]));
 
-  const seenCategories = new Set();
-  const categories = [];
-  for (const row of filtered) {
-    const category = row && row.category;
-    if (category && !seenCategories.has(category)) {
-      seenCategories.add(category);
-      categories.push(category);
+  let categories = [];
+  if (hasPrecomputedMaps(idx)) {
+    const filteredSet = new Set(filteredIndexes);
+    const entries = [];
+    for (const [catLc, arr] of Object.entries(idx._categoryIndex || {})) {
+      let min = Infinity;
+      for (const idxVal of arr) {
+        if (filteredSet.has(idxVal) && idxVal < min) {
+          min = idxVal;
+        }
+      }
+      if (min !== Infinity) {
+        const labelSource = idx.rows[arr[0]] || idx.rows[min];
+        const label = labelSource && labelSource.category;
+        if (label) entries.push({ label, min });
+      }
+    }
+    entries.sort((a, b) => a.min - b.min);
+    const seen = new Set();
+    categories = entries.reduce((acc, entry) => {
+      if (!seen.has(entry.label)) {
+        seen.add(entry.label);
+        acc.push(entry.label);
+      }
+      return acc;
+    }, []);
+  } else {
+    const seenCategories = new Set();
+    for (const idxVal of filteredIndexes) {
+      const row = idx.rows[idxVal];
+      const categoryValue = row && row.category;
+      if (categoryValue && !seenCategories.has(categoryValue)) {
+        seenCategories.add(categoryValue);
+        categories.push(categoryValue);
+      }
     }
   }
 
