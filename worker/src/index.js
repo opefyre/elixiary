@@ -70,7 +70,8 @@ export default {
         }
 
         // Increment best-effort and set TTL slightly beyond window
-        await env.MIXOLOGY.put(key, String(count + 1), { expirationTtl: windowSec + 5 });
+        const incr = env.MIXOLOGY.put(key, String(count + 1), { expirationTtl: windowSec + 5 });
+        scheduleBackground(ctx, incr, 'rate_limit_increment');
       }
 
       // --- HEAD shortcut (cheap success + cache hints) ---
@@ -84,7 +85,7 @@ export default {
       // --- Routes ---
       if (path === '/v1/list') {
         const qp = objFromSearch(url.searchParams);
-        const data = await handleList(qp, env);
+        const data = await handleList(qp, env, ctx);
         return json(data, 200, {
           ...cors,
           'ETag': data.etag,
@@ -105,7 +106,7 @@ export default {
       }
 
       if (path === '/v1/debug') {
-        const idx = await getIndex(env);
+        const idx = await getIndex(env, ctx);
         return json({ ok: true, total: idx.rows.length, sample: idx.rows.slice(0, 3).map(serializeRow) }, 200, {
           ...cors,
           'Cache-Control': 'no-store',
@@ -188,6 +189,17 @@ function json(obj, status = 200, headers = {}) {
     status,
     headers: { 'content-type': 'application/json; charset=utf-8', ...headers }
   });
+}
+function scheduleBackground(ctx, promise, label) {
+  const prefix = `[Mixology] ${label}`;
+  const handleError = (err) => {
+    console.error(`${prefix} failed`, err);
+  };
+  if (ctx && typeof ctx.waitUntil === 'function') {
+    ctx.waitUntil(promise.catch(handleError));
+  } else {
+    promise.catch(handleError);
+  }
 }
 function canon(s) { return String(s || '').replace(/\uFEFF/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ''); }
 function splitCSV(s) { return String(s || '').split(',').map(x => x.trim()).filter(Boolean); }
@@ -293,7 +305,7 @@ async function buildIndexFromSheet(env) {
   return { rows, etag, _headerMap: map };
 }
 
-async function getIndex(env, opts = {}) {
+async function getIndex(env, ctx, opts = {}) {
   const ttl = Number(env.CACHE_TTL_SECONDS || 300);
   const forceRebuild = opts.forceRebuild === true;
 
@@ -303,11 +315,12 @@ async function getIndex(env, opts = {}) {
   }
 
   const built = await buildIndexFromSheet(env);
-  await env.MIXOLOGY.put('idx_v1', JSON.stringify(built), { expirationTtl: ttl });
+  const write = env.MIXOLOGY.put('idx_v1', JSON.stringify(built), { expirationTtl: ttl });
+  scheduleBackground(ctx, write, 'index_cache_write');
   return built;
 }
 
-async function fetchRowFull(env, rowNumber, headerMap = null) {
+async function fetchRowFull(env, rowNumber, headerMap = null, ctx = null) {
   const range = `${env.SHEET_NAME}!A${rowNumber}:L${rowNumber}`;
   const data = await fetchSheetValues(env, range);
   const values = data.values || [];
@@ -315,7 +328,7 @@ async function fetchRowFull(env, rowNumber, headerMap = null) {
 
   let map = headerMap;
   if (!map || !Object.keys(map).length) {
-    const idx = await getIndex(env);
+    const idx = await getIndex(env, ctx);
     map = idx._headerMap;
     if (!map || !Object.keys(map).length) {
       const head = await fetchSheetValues(env, `${env.SHEET_NAME}!A1:L1`);
@@ -412,7 +425,7 @@ function filterIndex(rows, qRaw, tag, cat, mood) {
   return out;
 }
 
-async function handleList(qp, env) {
+async function handleList(qp, env, ctx) {
   const pageDefault = Number(env.PAGE_DEFAULT || 12);
   const pageMax = Number(env.PAGE_MAX || 48);
   const page = clamp(qp.page || 1, 1, 100000);
@@ -423,7 +436,7 @@ async function handleList(qp, env) {
   const mood = (qp.mood || '').trim();
   const ifE  = (qp.if_etag || '').trim();
 
-  const idx = await getIndex(env);
+  const idx = await getIndex(env, ctx);
 
   // cache hint: allow reuse of first page if unchanged and no filters
   if (ifE && ifE === idx.etag && page === 1 && !q && !tag && !cat && !mood) {
@@ -447,9 +460,9 @@ async function handleList(qp, env) {
 }
 
 async function handlePost(slug, env, ctx) {
-  let idx = await getIndex(env);
+  let idx = await getIndex(env, ctx);
   if (!idx._headerMap || !Object.keys(idx._headerMap).length) {
-    idx = await getIndex(env, { forceRebuild: true });
+    idx = await getIndex(env, ctx, { forceRebuild: true });
   }
 
   const rec = idx.rows.find(p => p.slug.toLowerCase() === String(slug || '').toLowerCase());
@@ -468,16 +481,15 @@ async function handlePost(slug, env, ctx) {
     headerMap = Object.fromEntries(header.map((h, i) => [canon(h), i]));
   }
 
-  const post = await fetchRowFull(env, rec._row, headerMap);
+  const post = await fetchRowFull(env, rec._row, headerMap, ctx);
   if (!post) return { ok: false, code: 404, error: 'not_found' };
 
   const ttl = Number(env.CACHE_TTL_SECONDS || 300);
   const expirationTtl = Math.max(60, ttl + 30);
-  if (ctx && typeof ctx.waitUntil === 'function') {
-    ctx.waitUntil(env.MIXOLOGY.put(cacheKey, JSON.stringify({ etag: idx.etag, post }), {
-      expirationTtl
-    }));
-  }
+  const putPost = env.MIXOLOGY.put(cacheKey, JSON.stringify({ etag: idx.etag, post }), {
+    expirationTtl
+  });
+  scheduleBackground(ctx, putPost, 'post_cache_write');
 
   return { ok: true, post };
 }
