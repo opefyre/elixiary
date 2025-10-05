@@ -95,7 +95,7 @@ export default {
 
       if (path.startsWith('/v1/post/')) {
         const slug = decodeURIComponent(path.slice('/v1/post/'.length));
-        const data = await handlePost(slug, env);
+        const data = await handlePost(slug, env, ctx);
         const status = data.ok ? 200 : (data.code || 404);
         return json(data, status, {
           ...cors,
@@ -401,7 +401,7 @@ async function handleList(qp, env) {
   };
 }
 
-async function handlePost(slug, env) {
+async function handlePost(slug, env, ctx) {
   let idx = await getIndex(env);
   if (!idx._headerMap || !Object.keys(idx._headerMap).length) {
     idx = await getIndex(env, { forceRebuild: true });
@@ -409,6 +409,12 @@ async function handlePost(slug, env) {
 
   const rec = idx.rows.find(p => p.slug.toLowerCase() === String(slug || '').toLowerCase());
   if (!rec) return { ok: false, code: 404, error: 'not_found' };
+
+  const cacheKey = `post_v1:${idx.etag}:${rec.slug}`;
+  const cached = await env.MIXOLOGY.get(cacheKey, { type: 'json' });
+  if (cached && cached.post && cached.etag === idx.etag) {
+    return { ok: true, post: cached.post };
+  }
 
   let headerMap = idx._headerMap;
   if (!headerMap || !Object.keys(headerMap).length) {
@@ -418,6 +424,16 @@ async function handlePost(slug, env) {
   }
 
   const post = await fetchRowFull(env, rec._row, headerMap);
+  if (!post) return { ok: false, code: 404, error: 'not_found' };
+
+  const ttl = Number(env.CACHE_TTL_SECONDS || 300);
+  const expirationTtl = Math.max(60, ttl + 30);
+  if (ctx && typeof ctx.waitUntil === 'function') {
+    ctx.waitUntil(env.MIXOLOGY.put(cacheKey, JSON.stringify({ etag: idx.etag, post }), {
+      expirationTtl
+    }));
+  }
+
   return { ok: true, post };
 }
 
