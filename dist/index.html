@@ -2818,7 +2818,7 @@
       const cached = CacheManager.get(firstKey);
       let latestHasMore = (typeof (cached?.has_more) === 'boolean')
         ? cached.has_more
-        : (typeof data.has_more === 'boolean' ? data.has_more : true);
+        : true;
 
       if (reset && cached) {
         AppState.etag = cached.etag || AppState.etag || null;
