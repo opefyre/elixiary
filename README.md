@@ -255,7 +255,8 @@ Caching:
 
 Worker builds index and stores to KV (key: idx_v1). TTL controlled by CACHE_TTL_SECONDS (default 300 s).
 
-ETag returned by /v1/list to help clients reuse results.
+ETag returned by /v1/list to help clients reuse results. Hash covers API version and canonical row fields (slug, date, category,
+difficulty, prep_time, tags, mood_labels, image links) so any visible change busts caches.
 
 Responses include Cache-Control: public, max-age=60.
 

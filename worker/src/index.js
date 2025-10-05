@@ -436,10 +436,15 @@ function toDateISO(v) {
     const d = new Date(String(v)); return isNaN(d) ? String(v || '') : d.toISOString().slice(0, 10);
   } catch { return String(v || ''); }
 }
-async function hashHex(s) {
-  const buf = new TextEncoder().encode(s);
-  const out = await crypto.subtle.digest('SHA-1', buf);
+const textEncoder = new TextEncoder();
+
+async function hashHexFromBytes(bytes) {
+  const out = await crypto.subtle.digest('SHA-256', bytes);
   return [...new Uint8Array(out)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function hashHex(s) {
+  return hashHexFromBytes(textEncoder.encode(s));
 }
 
 /* ---------- SHEETS FETCH + KV CACHE ---------- */
@@ -614,8 +619,41 @@ async function buildIndexFromSheet(env) {
     }
   }
 
-  const etag = await hashHex(API_VERSION + ':' + rows.length + ':' + rows.slice(0, 50).map(x => x.slug).join(','));
+  const etag = await computeIndexEtag(rows);
   return { rows, etag, _headerMap: map, _categoryIndex: categoryIndexOut, _tagIndex: tagIndexOut, _moodIndex: moodIndexOut, _tokenIndex: tokenIndexOut, _tokenPrefixIndex: tokenPrefixIndexOut, _tokenNgramIndex: tokenNgramIndexOut, _slugIndex: slugIndexOut };
+}
+
+async function computeIndexEtag(rows) {
+  const prefix = `${API_VERSION}:${rows.length}:`;
+  const parts = [];
+  parts.push(textEncoder.encode(prefix));
+  for (const row of rows) {
+    const snapshot = {
+      slug: row.slug,
+      date: row.date,
+      category: row.category,
+      difficulty: row.difficulty,
+      prep_time: row.prep_time,
+      tags: row.tags,
+      mood_labels: row.mood_labels,
+      image_url: row.image_url,
+      image_thumb: row.image_thumb
+    };
+    // Feed the digest incrementally with a canonical JSON snapshot of user-visible fields.
+    const encoded = textEncoder.encode(JSON.stringify(snapshot) + '\n');
+    parts.push(encoded);
+  }
+
+  let totalLength = 0;
+  for (const part of parts) totalLength += part.length;
+  const combined = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const part of parts) {
+    combined.set(part, offset);
+    offset += part.length;
+  }
+
+  return hashHexFromBytes(combined);
 }
 
 let memoryIndex = null;
