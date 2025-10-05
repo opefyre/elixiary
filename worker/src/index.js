@@ -305,19 +305,54 @@ async function buildIndexFromSheet(env) {
   return { rows, etag, _headerMap: map };
 }
 
+let memoryIndex = null;
+let memoryIndexExpiry = 0;
+let memoryIndexPromise = null;
+
 async function getIndex(env, ctx, opts = {}) {
-  const ttl = Number(env.CACHE_TTL_SECONDS || 300);
+  const ttlRaw = Number(env.CACHE_TTL_SECONDS || 300);
+  const ttl = Number.isFinite(ttlRaw) ? ttlRaw : 300;
+  const kvTtl = Math.max(0, ttl);
+  const ttlMs = kvTtl * 1000;
   const forceRebuild = opts.forceRebuild === true;
+  const now = Date.now();
+
+  if (!forceRebuild && memoryIndex && memoryIndexExpiry && now < memoryIndexExpiry) {
+    return memoryIndex;
+  }
 
   if (!forceRebuild) {
     const cached = await env.MIXOLOGY.get('idx_v1', { type: 'json' });
-    if (cached && cached.rows && cached.etag && cached._headerMap) return cached;
+    if (cached && cached.rows && cached.etag && cached._headerMap) {
+      memoryIndex = cached;
+      memoryIndexExpiry = Date.now() + ttlMs;
+      return cached;
+    }
   }
 
-  const built = await buildIndexFromSheet(env);
-  const write = env.MIXOLOGY.put('idx_v1', JSON.stringify(built), { expirationTtl: ttl });
-  scheduleBackground(ctx, write, 'index_cache_write');
-  return built;
+  if (!memoryIndexPromise) {
+    const rebuildPromise = (async () => {
+      const built = await buildIndexFromSheet(env);
+      memoryIndex = built;
+      memoryIndexExpiry = Date.now() + ttlMs;
+      const write = env.MIXOLOGY.put('idx_v1', JSON.stringify(built), { expirationTtl: kvTtl });
+      scheduleBackground(ctx, write, 'index_cache_write');
+      return built;
+    })();
+
+    memoryIndexPromise = rebuildPromise.then(
+      (result) => {
+        memoryIndexPromise = null;
+        return result;
+      },
+      (err) => {
+        memoryIndexPromise = null;
+        throw err;
+      }
+    );
+  }
+
+  return memoryIndexPromise;
 }
 
 async function fetchRowFull(env, rowNumber, headerMap = null, ctx = null) {
