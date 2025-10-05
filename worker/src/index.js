@@ -547,7 +547,27 @@ function lookupTokenMatches(idx, token) {
       for (const val of arr) fallback.add(val);
     }
   }
-  return fallback.size ? Array.from(fallback) : [];
+  return fallback.size ? Array.from(fallback).sort((a, b) => a - b) : [];
+}
+
+function intersectSortedArrays(a, b) {
+  const result = [];
+  let i = 0;
+  let j = 0;
+  while (i < a.length && j < b.length) {
+    const av = a[i];
+    const bv = b[j];
+    if (av === bv) {
+      result.push(av);
+      i += 1;
+      j += 1;
+    } else if (av < bv) {
+      i += 1;
+    } else {
+      j += 1;
+    }
+  }
+  return result;
 }
 
 function filterIndex(idx, qRaw, tag, cat, mood) {
@@ -609,18 +629,16 @@ function filterIndex(idx, qRaw, tag, cat, mood) {
   }
 
   groups.sort((a, b) => a.length - b.length);
-  let current = new Set(groups[0]);
+  let current = groups[0];
 
   for (let i = 1; i < groups.length; i++) {
-    const next = groups[i];
-    const nextSet = new Set(next);
-    for (const val of Array.from(current)) {
-      if (!nextSet.has(val)) current.delete(val);
+    current = intersectSortedArrays(current, groups[i]);
+    if (!current.length) {
+      return [];
     }
-    if (!current.size) break;
   }
 
-  return Array.from(current).sort((a, b) => a - b);
+  return current;
 }
 
 function normalizeListQueryParams(q, tag, cat, mood) {
