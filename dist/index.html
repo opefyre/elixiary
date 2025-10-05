@@ -2534,7 +2534,13 @@
       AppState.chipsBuilt = false;
     },
 
-    mergeCategories(posts) {
+    mergeCategories(posts, categories) {
+      if (Array.isArray(categories)) {
+        AppState.categorySet = new Set(categories.filter(Boolean));
+      } else if (!(AppState.categorySet instanceof Set)) {
+        AppState.categorySet = new Set();
+      }
+
       if (!Array.isArray(posts) || !posts.length) return;
 
       if (!(AppState.categorySet instanceof Set)) {
@@ -2722,7 +2728,7 @@
       const cached = CacheManager.get(pageKey);
 
       if (cached) {
-        Renderer.appendCards(cached.posts);
+        Renderer.appendCards(cached.posts, cached.categories);
         FilterManager.buildChips();
         AppState.page = nextPage;
         AppState.hasMore = cached.has_more;
@@ -2743,10 +2749,11 @@
           etag: AppState.etag,
           posts: data.posts,
           total: data.total,
-          has_more: data.has_more
+          has_more: data.has_more,
+          categories: data.categories
         });
-        
-        Renderer.appendCards(data.posts);
+
+        Renderer.appendCards(data.posts, data.categories);
         FilterManager.buildChips();
         AppState.page = nextPage;
         AppState.hasMore = data.has_more;
@@ -2809,10 +2816,13 @@
       const baseKey = CacheManager.keyBase();
       const firstKey = `${baseKey}:p1`;
       const cached = CacheManager.get(firstKey);
+      let latestHasMore = (typeof (cached?.has_more) === 'boolean')
+        ? cached.has_more
+        : (typeof data.has_more === 'boolean' ? data.has_more : true);
 
       if (reset && cached) {
         AppState.etag = cached.etag || AppState.etag || null;
-        this.paintCards(cached.posts, cached.total, cached.has_more, true);
+        this.paintCards(cached.posts, cached.total, cached.has_more, true, cached.categories);
         FilterManager.buildChips();
       }
 
@@ -2846,21 +2856,48 @@
           etag: AppState.etag,
           posts: data.posts,
           total: data.total,
-          has_more: data.has_more
+          has_more: data.has_more,
+          categories: data.categories
         });
 
-        this.paintCards(data.posts, data.total, data.has_more, true);
+        this.paintCards(data.posts, data.total, data.has_more, true, data.categories);
         FilterManager.buildChips();
+        latestHasMore = (typeof data.has_more === 'boolean') ? data.has_more : latestHasMore;
+      } else if (cached && (!Array.isArray(cached.categories) || !cached.categories.length)) {
+        const refresh = await APIClient.fetchList({ page: 1 });
+
+        if (requestToken !== AppState.requestId) {
+          return;
+        }
+
+        if (refresh && refresh.ok && !refresh.not_modified) {
+          if (refresh.etag) {
+            AppState.etag = refresh.etag;
+            CacheManager.put('mixology:etag', { val: AppState.etag });
+          }
+
+          CacheManager.put(firstKey, {
+            etag: AppState.etag,
+            posts: refresh.posts,
+            total: refresh.total,
+            has_more: refresh.has_more,
+            categories: refresh.categories
+          });
+
+          this.paintCards(refresh.posts, refresh.total, refresh.has_more, true, refresh.categories);
+          FilterManager.buildChips();
+          latestHasMore = (typeof refresh.has_more === 'boolean') ? refresh.has_more : latestHasMore;
+        }
       }
 
       AppState.page = 1;
-      AppState.hasMore = cached ? cached.has_more : (data.has_more ?? true);
+      AppState.hasMore = (typeof latestHasMore === 'boolean') ? latestHasMore : true;
       InfiniteScroll.setup();
       
       AppState.retryCount = 0;
     },
 
-    paintCards(posts, total, hasMore, replace) {
+    paintCards(posts, total, hasMore, replace, categories) {
       const view = Utils.$('#view');
       const countEl = Utils.$('#count');
 
@@ -2868,7 +2905,7 @@
         posts = [];
       }
 
-      FilterManager.mergeCategories(posts);
+      FilterManager.mergeCategories(posts, categories);
 
       if (countEl) countEl.textContent = String(total ?? posts.length);
 
@@ -2904,10 +2941,10 @@
       ImageManager.wireImages(AppState.gridEl);
     },
 
-    appendCards(newPosts) {
-      if (!Array.isArray(newPosts) || !newPosts.length) return;
+    appendCards(newPosts, categories) {
+      FilterManager.mergeCategories(newPosts, categories);
 
-      FilterManager.mergeCategories(newPosts);
+      if (!Array.isArray(newPosts) || !newPosts.length) return;
 
       const cards = newPosts.map(recipe => UIComponents.createCard(recipe)).join('');
       
