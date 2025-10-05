@@ -106,7 +106,7 @@ export default {
 
       if (path === '/v1/debug') {
         const idx = await getIndex(env);
-        return json({ ok: true, total: idx.rows.length, sample: idx.rows.slice(0, 3) }, 200, {
+        return json({ ok: true, total: idx.rows.length, sample: idx.rows.slice(0, 3).map(serializeRow) }, 200, {
           ...cors,
           'Cache-Control': 'no-store',
           'X-Content-Type-Options': 'nosniff'
@@ -260,18 +260,26 @@ async function buildIndexFromSheet(env) {
     if (!slug) continue;
 
     const img = driveImageLinks(r[map['image_url']]);
+    const category = String((r[map['category']] || ''));
+    const tags = splitCSV(r[map['tags']]);
+    const moods = splitCSV(r[map['moodlabels']] || r[map['mood_labels']]);
+
     rows.push({
       _row: i + 1,
       slug,
       name: String(name || ''),
       date: toDateISO(r[map['date']]),
-      category: String((r[map['category']] || '')),
+      category,
       difficulty: String((r[map['difficulty']] || '')),
       prep_time: String((r[map['preptime']] || r[map['prep_time']] || '')),
-      tags: splitCSV(r[map['tags']]),
-      mood_labels: splitCSV(r[map['moodlabels']] || r[map['mood_labels']]),
+      tags,
+      mood_labels: moods,
       image_url: img.src,
-      image_thumb: img.thumb
+      image_thumb: img.thumb,
+      _name_lc: String(name || '').toLowerCase(),
+      _tags_lc: tags.map(t => String(t || '').toLowerCase()),
+      _moods_lc: moods.map(m => String(m || '').toLowerCase()),
+      _category_lc: category.toLowerCase()
     });
   }
 
@@ -352,19 +360,55 @@ async function fetchRowFull(env, rowNumber, headerMap = null) {
 
 function clamp(n, lo, hi) { n = Number(n); if (isNaN(n)) n = lo; return Math.max(lo, Math.min(hi, Math.floor(n))); }
 
+function ensureLowercaseFields(row) {
+  if (!('_name_lc' in row)) {
+    row._name_lc = String(row.name || '').toLowerCase();
+  }
+  if (!Array.isArray(row._tags_lc)) {
+    row._tags_lc = Array.isArray(row.tags) ? row.tags.map(t => String(t || '').toLowerCase()) : [];
+  }
+  if (!Array.isArray(row._moods_lc)) {
+    row._moods_lc = Array.isArray(row.mood_labels) ? row.mood_labels.map(m => String(m || '').toLowerCase()) : [];
+  }
+  if (!('_category_lc' in row)) {
+    row._category_lc = String(row.category || '').toLowerCase();
+  }
+  return row;
+}
+
+function serializeRow(row) {
+  const out = {};
+  for (const [key, value] of Object.entries(row)) {
+    if (key === '_row' || !key.startsWith('_')) {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
 function filterIndex(rows, qRaw, tag, cat, mood) {
   let out = rows;
   if (qRaw) {
     const q = qRaw.toLowerCase();
-    out = out.filter(p =>
-      (p.name || '').toLowerCase().includes(q) ||
-      (p.tags || []).some(t => t.toLowerCase().includes(q)) ||
-      (p.mood_labels || []).some(m => m.toLowerCase().includes(q))
-    );
+    out = out.filter(p => {
+      const row = ensureLowercaseFields(p);
+      return row._name_lc.includes(q)
+        || row._tags_lc.some(t => t.includes(q))
+        || row._moods_lc.some(m => m.includes(q));
+    });
   }
-  if (tag)  out = out.filter(p => (p.tags || []).map(t => t.toLowerCase()).includes(tag.toLowerCase()));
-  if (cat)  out = out.filter(p => String(p.category || '').toLowerCase() === cat.toLowerCase());
-  if (mood) out = out.filter(p => (p.mood_labels || []).map(m => m.toLowerCase()).includes(mood.toLowerCase()));
+  if (tag) {
+    const tagLc = tag.toLowerCase();
+    out = out.filter(p => ensureLowercaseFields(p)._tags_lc.includes(tagLc));
+  }
+  if (cat) {
+    const catLc = cat.toLowerCase();
+    out = out.filter(p => ensureLowercaseFields(p)._category_lc === catLc);
+  }
+  if (mood) {
+    const moodLc = mood.toLowerCase();
+    out = out.filter(p => ensureLowercaseFields(p)._moods_lc.includes(moodLc));
+  }
   return out;
 }
 
@@ -391,13 +435,14 @@ async function handleList(qp, env) {
   const start = (page - 1) * size;
   const end   = Math.min(start + size, total);
   const slice = (start < total) ? filtered.slice(start, end) : [];
+  const posts = slice.map(serializeRow);
 
   return {
     ok: true,
     etag: idx.etag,
     total, page, page_size: size,
     has_more: end < total,
-    posts: slice
+    posts
   };
 }
 
