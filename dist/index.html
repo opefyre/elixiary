@@ -2826,13 +2826,24 @@
         FilterManager.buildChips();
       }
 
-      const data = await APIClient.fetchList({
-        page: 1,
-        ifEtag: cached?.etag || AppState.etag
-      });
+      const ifEtag = cached?.etag ?? null;
+      const requestOptions = { page: 1 };
+      if (ifEtag) {
+        requestOptions.ifEtag = ifEtag;
+      }
+
+      let data = await APIClient.fetchList(requestOptions);
 
       if (requestToken !== AppState.requestId) {
         return;
+      }
+
+      if (data?.not_modified && !cached) {
+        data = await APIClient.fetchList({ page: 1 });
+
+        if (requestToken !== AppState.requestId) {
+          return;
+        }
       }
 
       if (!data.ok) {
