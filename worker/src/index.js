@@ -45,19 +45,43 @@ export default {
       }
 
       // --- Lightweight per-IP rate limit on /v1/* (free-tier friendly) ---
+      // Uses an in-memory bucket cache for quick checks with KV as an
+      // eventually consistent safety net across isolates.
       if (path.startsWith('/v1/')) {
         const limit = Number(env.RL_LIMIT || 60);          // requests
-        const windowSec = Number(env.RL_WINDOW_SEC || 60); // per N seconds
+        const windowSec = Math.max(1, Number(env.RL_WINDOW_SEC || 60)); // per N seconds
         const ip = clientIp(request) || 'unknown';
         const now = Date.now();
         const bucket = Math.floor(now / 1000 / windowSec);
-        const key = `rl:${ip}:${bucket}`;
+        const kvKey = `rl:${ip}:${bucket}`;
+        const mapKey = `${ip}:${bucket}`;
+        const bucketExpiresAt = (bucket + 1) * windowSec * 1000;
 
-        let count = 0;
-        const current = await env.MIXOLOGY.get(key);
-        if (current) count = parseInt(current, 10) || 0;
+        let entry = rateLimitMemory.get(mapKey);
+        if (entry && entry.expiresAt <= now) {
+          rateLimitMemory.delete(mapKey);
+          entry = null;
+        }
 
-        if (count >= limit) {
+        if (!entry) {
+          const current = await env.MIXOLOGY.get(kvKey);
+          const kvCount = current ? parseInt(current, 10) || 0 : 0;
+          entry = {
+            count: kvCount,
+            expiresAt: bucketExpiresAt,
+            syncedCount: kvCount,
+            hasKvValue: Boolean(current),
+            syncScheduled: false,
+            needsSyncAfterCurrent: false
+          };
+          rateLimitMemory.set(mapKey, entry);
+        } else {
+          entry.expiresAt = bucketExpiresAt;
+        }
+
+        const count = entry.count;
+
+        if (count >= limit && limit > 0) {
           const resetIn = windowSec - Math.floor((now / 1000) % windowSec);
           return json({ ok: false, error: 'rate_limited' }, 429, {
             ...cors,
@@ -69,9 +93,45 @@ export default {
           });
         }
 
-        // Increment best-effort and set TTL slightly beyond window
-        const incr = env.MIXOLOGY.put(key, String(count + 1), { expirationTtl: windowSec + 5 });
-        scheduleBackground(ctx, incr, 'rate_limit_increment');
+        entry.count = count + 1;
+        rateLimitMemory.set(mapKey, entry);
+
+        // KV writes act as a cross-isolate safety net; the in-memory counter is
+        // eventually consistent and prioritizes fewer writes per bucket window.
+        const unsynced = entry.count - entry.syncedCount;
+        const nearingLimit = limit > 0 && entry.count >= Math.max(1, limit - 1);
+        const shouldSync = unsynced >= RATE_LIMIT_SYNC_STEP
+          || nearingLimit
+          || (!entry.hasKvValue && entry.count === 1);
+
+        const queueKvSync = () => {
+          const countToWrite = entry.count;
+          entry.syncScheduled = true;
+          entry.needsSyncAfterCurrent = false;
+          const write = env.MIXOLOGY.put(kvKey, String(countToWrite), { expirationTtl: windowSec + 5 })
+            .then(() => {
+              entry.syncedCount = Math.max(entry.syncedCount, countToWrite);
+              entry.hasKvValue = true;
+              entry.syncScheduled = false;
+              if (entry.needsSyncAfterCurrent) {
+                entry.needsSyncAfterCurrent = false;
+                if (entry.count - entry.syncedCount > 0) queueKvSync();
+              }
+            })
+            .catch((err) => {
+              entry.syncScheduled = false;
+              throw err;
+            });
+          scheduleBackground(ctx, write, 'rate_limit_sync');
+        };
+
+        if (shouldSync) {
+          if (entry.syncScheduled) {
+            entry.needsSyncAfterCurrent = true;
+          } else {
+            queueKvSync();
+          }
+        }
       }
 
       // --- HEAD shortcut (cheap success + cache hints) ---
@@ -128,6 +188,10 @@ const API_VERSION = 'v1';
 const listMemoryCache = new Map();
 let listMemoryCacheEtag = null;
 let listMemoryCacheLastFiltersCleared = true;
+
+// Module-scoped rate limit cache keyed by `ip:bucket`
+const rateLimitMemory = new Map();
+const RATE_LIMIT_SYNC_STEP = 5;
 
 // CORS with wildcard support (e.g. https://*.web.app)
 function corsHeaders(env, origin) {
