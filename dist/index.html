@@ -3,6 +3,53 @@
 <head>
   <meta charset="utf-8" />
   
+  <!-- Debug toggles -->
+  <script>
+    window.DEBUG_IMAGES = window.DEBUG_IMAGES ?? false;
+
+    (function setupImageDebugging() {
+      if (window.__IMAGE_DEBUG_PATCHED__) return;
+      window.__IMAGE_DEBUG_PATCHED__ = true;
+
+      const logPrefixes = [
+        '📦',
+        '✅',
+        '🖼️',
+        '🔄',
+        '🌐',
+        '📡',
+        '🔗',
+        '🧹',
+        '🔌',
+        '🔍',
+        '👀',
+        '🔭',
+        '👁️',
+        '🎯'
+      ];
+      const warnPrefixes = ['⚠️', '❌'];
+
+      const originalLog = console.log.bind(console);
+      const originalWarn = console.warn.bind(console);
+
+      const shouldSuppress = (prefixes, args) => {
+        if (window.DEBUG_IMAGES) return false;
+        const [first] = args;
+        return typeof first === 'string' && prefixes.some(prefix => first.startsWith(prefix));
+      };
+
+      console.log = (...args) => {
+        if (shouldSuppress(logPrefixes, args)) return;
+        originalLog(...args);
+      };
+
+      console.warn = (...args) => {
+        if (shouldSuppress(warnPrefixes, args)) return;
+        originalWarn(...args);
+      };
+    })();
+  </script>
+
   <!-- SEO & Meta Tags -->
   <title>Elixiary - Discover Amazing Cocktail Recipes</title>
   <meta name="description" content="Discover and explore an extensive collection of cocktail recipes with detailed ingredients, instructions, and beautiful photography. Find your perfect drink.">
