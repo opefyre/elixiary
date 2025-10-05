@@ -1950,6 +1950,10 @@
     imageCache: new Map(), // Cache for loaded images
     urlCache: new Map(), // Cache for converted URLs
     persistentCache: null, // Persistent localStorage cache
+    sizes: {
+      thumb: 'w400-h400',
+      detail: 'w1200-h1200'
+    },
     persistentCacheDirty: false,
     persistentSaveHandle: null,
     persistentSaveType: null,
@@ -2033,6 +2037,9 @@
     // Cache image URL
     cacheImageUrl(slug, imageUrl) {
       this.initPersistentCache();
+      if (this.persistentCache.get(slug) === imageUrl) {
+        return;
+      }
       this.persistentCache.set(slug, imageUrl);
       this.persistentCacheDirty = true;
       this.schedulePersistentSave();
