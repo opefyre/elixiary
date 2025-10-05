@@ -190,6 +190,7 @@ export default {
 const API_VERSION = 'v1';
 
 const listMemoryCache = new Map();
+const LIST_MEMORY_CACHE_MAX_ENTRIES = 256;
 let listMemoryCacheEtag = null;
 let listMemoryCacheLastFiltersCleared = true;
 
@@ -204,6 +205,55 @@ let rateLimitMemorySweepIterator = null;
 let rateLimitMemoryPruneScheduled = false;
 let rateLimitMemoryWasAboveThreshold = false;
 let rateLimitMemoryLastPruneAt = 0;
+
+function getListCacheTtlSeconds(env) {
+  const raw = Number(env.LIST_CACHE_TTL_SECONDS || 90);
+  if (!Number.isFinite(raw)) return 90;
+  return Math.max(60, Math.min(120, raw));
+}
+
+function pruneExpiredListMemoryCache(ttlMs, now = Date.now()) {
+  if (!(ttlMs > 0)) return;
+  for (const [key, entry] of listMemoryCache) {
+    if ((now - entry.insertedAt) > ttlMs) {
+      listMemoryCache.delete(key);
+      continue;
+    }
+    break;
+  }
+}
+
+function evictListMemoryCacheToCapacity(maxEntries) {
+  if (!(maxEntries > 0)) {
+    listMemoryCache.clear();
+    return;
+  }
+  while (listMemoryCache.size >= maxEntries) {
+    const oldest = listMemoryCache.keys().next();
+    if (oldest.done) break;
+    listMemoryCache.delete(oldest.value);
+  }
+}
+
+function getListMemoryCacheEntry(key, ttlMs, now = Date.now()) {
+  const entry = listMemoryCache.get(key);
+  if (!entry) return null;
+  if (ttlMs > 0 && (now - entry.insertedAt) > ttlMs) {
+    listMemoryCache.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function setListMemoryCacheEntry(key, value, ttlMs, maxEntries = LIST_MEMORY_CACHE_MAX_ENTRIES, now = Date.now()) {
+  if (!(ttlMs > 0) || !(maxEntries > 0)) return;
+  pruneExpiredListMemoryCache(ttlMs, now);
+  if (listMemoryCache.has(key)) {
+    listMemoryCache.delete(key);
+  }
+  evictListMemoryCacheToCapacity(maxEntries);
+  listMemoryCache.set(key, { value, insertedAt: now });
+}
 
 // CORS with wildcard support (e.g. https://*.web.app)
 function corsHeaders(env, origin) {
@@ -1023,6 +1073,9 @@ async function handleList(qp, env, ctx) {
 
   const idx = await getIndex(env, ctx);
 
+  const listCacheTtlSeconds = getListCacheTtlSeconds(env);
+  const listCacheTtlMs = listCacheTtlSeconds * 1000;
+
   const normalized = normalizeListQueryParams(q, tag, cat, mood);
   const filtersCleared = !normalized.q && !normalized.tag && !normalized.category && !normalized.mood;
 
@@ -1048,7 +1101,7 @@ async function handleList(qp, env, ctx) {
     return payload;
   };
 
-  const memoryCached = listMemoryCache.get(cacheKey);
+  const memoryCached = getListMemoryCacheEntry(cacheKey, listCacheTtlMs);
   if (memoryCached) {
     const cachedResponse = serveCached(memoryCached);
     if (cachedResponse) return cachedResponse;
@@ -1060,7 +1113,7 @@ async function handleList(qp, env, ctx) {
 
   const kvCached = await env.MIXOLOGY.get(cacheKey, { type: 'json' });
   if (kvCached && kvCached.etag === idx.etag) {
-    listMemoryCache.set(cacheKey, kvCached);
+    setListMemoryCacheEntry(cacheKey, kvCached, listCacheTtlMs);
     const cachedResponse = serveCached(kvCached);
     if (cachedResponse) return cachedResponse;
   }
@@ -1092,9 +1145,9 @@ async function handleList(qp, env, ctx) {
     categories
   };
 
-  listMemoryCache.set(cacheKey, result);
+  setListMemoryCacheEntry(cacheKey, result, listCacheTtlMs);
 
-  const expirationTtl = Math.max(60, Math.min(120, Number(env.LIST_CACHE_TTL_SECONDS || 90)));
+  const expirationTtl = listCacheTtlSeconds;
   const putList = env.MIXOLOGY.put(cacheKey, JSON.stringify(result), { expirationTtl });
   scheduleBackground(ctx, putList, 'list_cache_write');
 
