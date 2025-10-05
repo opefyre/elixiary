@@ -3,17 +3,18 @@
 <head>
   <meta charset="utf-8" />
   
+  <!-- Debug toggles -->
+  <script>
+    // Toggle to `true` to enable verbose image debugging in development.
+    window.DEBUG_IMAGES = window.DEBUG_IMAGES ?? false;
+  </script>
+
   <!-- SEO & Meta Tags -->
   <title>Elixiary - Discover Amazing Cocktail Recipes</title>
   <meta name="description" content="Discover and explore an extensive collection of cocktail recipes with detailed ingredients, instructions, and beautiful photography. Find your perfect drink.">
   <meta name="keywords" content="cocktails, recipes, drinks, mixology, bartending, ingredients, alcohol, beverages">
   <meta name="author" content="Elixiary">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-
-  <script>
-    // Toggle to `true` in development to enable verbose image logging.
-    window.DEBUG_IMAGES = window.DEBUG_IMAGES ?? false;
-  </script>
   
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
@@ -1442,14 +1443,6 @@
   </footer>
 
 <script>
-  // ===== DEBUG UTILITIES =====
-  const debugLog = (...args) => {
-    if (window.DEBUG_IMAGES) console.log(...args);
-  };
-  const debugWarn = (...args) => {
-    if (window.DEBUG_IMAGES) console.warn(...args);
-  };
-
   // ===== CONFIGURATION =====
   const CONFIG = {
     API_BASE: 'https://api.elixiary.com/v1',
@@ -1746,7 +1739,7 @@
           ...val
         })); 
       } catch(e) {
-        debugWarn('Cache storage failed:', e);
+        if (window.DEBUG_IMAGES) console.warn('Cache storage failed:', e);
       }
     },
     
@@ -1756,7 +1749,7 @@
           if (k.startsWith('mixology:index:')) localStorage.removeItem(k); 
         });
       } catch(e) {
-        debugWarn('Cache clear failed:', e);
+        if (window.DEBUG_IMAGES) console.warn('Cache clear failed:', e);
       }
     }
   };
@@ -1978,7 +1971,7 @@
         const cacheData = Object.fromEntries(this.persistentCache);
         CacheManager.put('mixology:images', { data: cacheData }, 24 * 60 * 60 * 1000); // 24 hours
       } catch (error) {
-        debugWarn('Failed to save image cache:', error);
+        if (window.DEBUG_IMAGES) console.warn('Failed to save image cache:', error);
       }
     },
 
@@ -2114,7 +2107,7 @@
       const cacheKey = recipe.slug;
       if (this.imageCache.has(cacheKey)) {
         const cachedData = this.imageCache.get(cacheKey);
-        debugLog(`📦 Found memory cached data for ${recipe.name}:`, cachedData);
+        if (window.DEBUG_IMAGES) console.log(`📦 Found memory cached data for ${recipe.name}:`, cachedData);
         if (cachedData.image_url || cachedData.image_thumb) {
           const directUrl = this.convertToDirectImageUrl(cachedData.image_url || cachedData.image_thumb);
           
@@ -2134,14 +2127,14 @@
             }
           }, 100);
           
-          debugLog(`✅ Applied memory cached image for ${recipe.name}`);
+          if (window.DEBUG_IMAGES) console.log(`✅ Applied memory cached image for ${recipe.name}`);
         }
         return;
       }
       
       const listImageUrl = recipe.image_url || recipe.image_thumb;
       if (listImageUrl) {
-        debugLog(`🖼️ Using list image for ${recipe.name}: ${listImageUrl}`);
+        if (window.DEBUG_IMAGES) console.log(`🖼️ Using list image for ${recipe.name}: ${listImageUrl}`);
 
         this.imageCache.set(cacheKey, {
           image_url: recipe.image_url || null,
@@ -2149,7 +2142,7 @@
         });
 
         const directImageUrl = this.convertToDirectImageUrl(listImageUrl);
-        debugLog(`🔄 Converted list URL for ${recipe.name}: ${directImageUrl}`);
+        if (window.DEBUG_IMAGES) console.log(`🔄 Converted list URL for ${recipe.name}: ${directImageUrl}`);
 
         this.loadImageWithBlurEffect(img, directImageUrl);
         img.dataset.realImage = 'loaded';
@@ -2157,13 +2150,13 @@
       }
 
       try {
-        debugLog(`🌐 Fetching detail data for: ${recipe.slug}`);
+        if (window.DEBUG_IMAGES) console.log(`🌐 Fetching detail data for: ${recipe.slug}`);
         const response = await APIClient.fetchPost(recipe.slug);
-        debugLog(`📡 API response for ${recipe.name}:`, response);
+        if (window.DEBUG_IMAGES) console.log(`📡 API response for ${recipe.name}:`, response);
 
         if (response.ok && response.post) {
           const realImageUrl = response.post.image_url || response.post.image_thumb;
-          debugLog(`🔗 Found image URL for ${recipe.name}:`, realImageUrl);
+          if (window.DEBUG_IMAGES) console.log(`🔗 Found image URL for ${recipe.name}:`, realImageUrl);
 
           this.imageCache.set(cacheKey, {
             image_url: response.post.image_url,
@@ -2171,20 +2164,20 @@
           });
 
           if (realImageUrl) {
-            debugLog(`🖼️ Testing image load for ${recipe.name}: ${realImageUrl}`);
+            if (window.DEBUG_IMAGES) console.log(`🖼️ Testing image load for ${recipe.name}: ${realImageUrl}`);
 
             const directImageUrl = this.convertToDirectImageUrl(realImageUrl);
-            debugLog(`🔄 Converted URL: ${directImageUrl}`);
+            if (window.DEBUG_IMAGES) console.log(`🔄 Converted URL: ${directImageUrl}`);
 
             this.loadImageWithBlurEffect(img, directImageUrl);
             img.dataset.realImage = 'loaded';
             this.cacheImageUrl(recipe.slug, directImageUrl); // Cache the working URL
-            debugLog(`✅ Successfully loaded image for ${recipe.name}`);
+            if (window.DEBUG_IMAGES) console.log(`✅ Successfully loaded image for ${recipe.name}`);
           } else {
-            debugWarn(`⚠️ No image URL found for ${recipe.name}`);
+            if (window.DEBUG_IMAGES) console.warn(`⚠️ No image URL found for ${recipe.name}`);
           }
         } else {
-          debugWarn(`❌ API call failed for ${recipe.name}:`, response);
+          if (window.DEBUG_IMAGES) console.warn(`❌ API call failed for ${recipe.name}:`, response);
         }
       } catch (error) {
         console.error(`💥 Error fetching image for ${recipe.name}:`, error);
@@ -2233,20 +2226,20 @@
       if (this.imageObserver) {
         this.imageObserver.disconnect();
         this.imageObserver = null;
-        debugLog('🧹 Cleaned up image observer');
+        if (window.DEBUG_IMAGES) console.log('🧹 Cleaned up image observer');
       }
     },
 
     wireImages(root) {
     const imgs = (root || document).querySelectorAll('img.thumb:not([data-wired])');
-      debugLog(`🔌 Wiring ${imgs.length} images`);
+      if (window.DEBUG_IMAGES) console.log(`🔌 Wiring ${imgs.length} images`);
       
       imgs.forEach(img => {
       img.dataset.wired = '1';
 
         const card = img.closest('.card');
         const recipeData = card ? this.extractRecipeData(card) : null;
-        debugLog(`🔍 Image found, recipe data:`, recipeData);
+        if (window.DEBUG_IMAGES) console.log(`🔍 Image found, recipe data:`, recipeData);
 
         if (img.complete) this.validateImage(img);
 
@@ -2291,21 +2284,21 @@
     },
 
     observeImageForLazyLoad(img, recipe) {
-      debugLog(`👀 Setting up lazy load observer for: ${recipe.name}`);
+      if (window.DEBUG_IMAGES) console.log(`👀 Setting up lazy load observer for: ${recipe.name}`);
       
       if (!this.imageObserver) {
-        debugLog('🔭 Creating new IntersectionObserver for images');
+        if (window.DEBUG_IMAGES) console.log('🔭 Creating new IntersectionObserver for images');
         this.imageObserver = new IntersectionObserver((entries) => {
           entries.forEach(entry => {
-            debugLog(`👁️ Image intersection changed for: ${entry.target.alt}, intersecting: ${entry.isIntersecting}`);
+            if (window.DEBUG_IMAGES) console.log(`👁️ Image intersection changed for: ${entry.target.alt}, intersecting: ${entry.isIntersecting}`);
             if (entry.isIntersecting && !entry.target.dataset.realImage) {
               const recipeData = entry.target.recipeData;
-              debugLog(`🎯 Image came into view, recipe data:`, recipeData);
+              if (window.DEBUG_IMAGES) console.log(`🎯 Image came into view, recipe data:`, recipeData);
               if (recipeData) {
                 this.loadRealImage(entry.target, recipeData);
                 this.imageObserver.unobserve(entry.target);
               } else {
-                debugWarn('⚠️ No recipe data found on image element');
+                if (window.DEBUG_IMAGES) console.warn('⚠️ No recipe data found on image element');
               }
             }
           });
@@ -2316,7 +2309,7 @@
 
       img.recipeData = recipe;
       this.imageObserver.observe(img);
-      debugLog(`✅ Started observing image for: ${recipe.name}`);
+      if (window.DEBUG_IMAGES) console.log(`✅ Started observing image for: ${recipe.name}`);
     },
 
     validateImage(img) {
