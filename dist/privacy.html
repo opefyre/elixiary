@@ -17,7 +17,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 
   <!-- CSP (same style as index, no API calls here) -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' https: data:; script-src 'self' 'unsafe-inline'; connect-src 'self';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' https: data:; script-src 'self'; connect-src 'self';">
 
   <link rel="canonical" href="https://elixiary.web.app/privacy">
 
@@ -87,16 +87,6 @@
     </div>
   </footer>
 
-  <script>
-    document.getElementById('year').textContent = new Date().getFullYear();
-    document.getElementById('updated').textContent = new Date().toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations()
-        .then((regs) => {
-          for (const reg of regs) reg.unregister();
-        })
-        .catch(() => {});
-    }
-  </script>
+  <script type="module" src="/assets/static-pages.js"></script>
 </body>
 </html>

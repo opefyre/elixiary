@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#111827">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' https: data:; script-src 'self' 'unsafe-inline'; connect-src 'self';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' https: data:; script-src 'self'; connect-src 'self';">
   <link rel="canonical" href="https://elixiary.web.app/contact">
   <style>
     :root{--bg:#fff;--text:#0B0F19;--muted:#6B7280;--line:#E5E7EB;--soft:#F7F8FA;--accent:#111827;--radius:14px;}
@@ -50,7 +50,7 @@
         <p class="muted">Have feedback or a recipe request? Send us a message.</p>
 
         <!-- Simple mailto form (no backend) -->
-        <form id="contactForm" onsubmit="return sendMailto(event)">
+        <form id="contactForm">
           <div>
             <label for="name">Name</label>
             <input id="name" name="name" required autocomplete="name" />
@@ -81,25 +81,6 @@
     </div>
   </footer>
 
-  <script>
-    document.getElementById('year').textContent = new Date().getFullYear();
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations()
-        .then((regs) => {
-          for (const reg of regs) reg.unregister();
-        })
-        .catch(() => {});
-    }
-    function sendMailto(e){
-      e.preventDefault();
-      const n = encodeURIComponent(document.getElementById('name').value.trim());
-      const em = encodeURIComponent(document.getElementById('email').value.trim());
-      const m = encodeURIComponent(document.getElementById('message').value.trim());
-      const subject = `Elixiary contact from ${n}`;
-      const body = `Name: ${n}%0AEmail: ${em}%0A%0A${m}`;
-      window.location.href = `mailto:info@opefyre.com?subject=${subject}&body=${body}`;
-      return false;
-    }
-  </script>
+  <script type="module" src="/assets/static-pages.js"></script>
 </body>
 </html>
