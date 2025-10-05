@@ -125,6 +125,10 @@ export default {
 
 const API_VERSION = 'v1';
 
+const listMemoryCache = new Map();
+let listMemoryCacheEtag = null;
+let listMemoryCacheLastFiltersCleared = true;
+
 // CORS with wildcard support (e.g. https://*.web.app)
 function corsHeaders(env, origin) {
   const expose = 'ETag, Cache-Control, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset';
@@ -602,6 +606,23 @@ function filterIndex(idx, qRaw, tag, cat, mood) {
   return Array.from(current).sort((a, b) => a - b);
 }
 
+function normalizeListQueryParams(q, tag, cat, mood) {
+  const norm = (val) => String(val || '').trim().toLowerCase();
+  const normalized = {
+    q: norm(q).replace(/\s+/g, ' '),
+    tag: norm(tag),
+    category: norm(cat),
+    mood: norm(mood)
+  };
+  return normalized;
+}
+
+function buildListCacheKey(etag, params) {
+  const { q, tag, category, mood, page, size } = params;
+  const payload = JSON.stringify([q, tag, category, mood, page, size]);
+  return `list_v1:${etag}:${payload}`;
+}
+
 async function handleList(qp, env, ctx) {
   const pageDefault = Number(env.PAGE_DEFAULT || 12);
   const pageMax = Number(env.PAGE_MAX || 48);
@@ -615,9 +636,46 @@ async function handleList(qp, env, ctx) {
 
   const idx = await getIndex(env, ctx);
 
-  // cache hint: allow reuse of first page if unchanged and no filters
-  if (ifE && ifE === idx.etag && page === 1 && !q && !tag && !cat && !mood) {
+  const normalized = normalizeListQueryParams(q, tag, cat, mood);
+  const filtersCleared = !normalized.q && !normalized.tag && !normalized.category && !normalized.mood;
+
+  if (idx.etag !== listMemoryCacheEtag) {
+    listMemoryCache.clear();
+    listMemoryCacheEtag = idx.etag;
+    listMemoryCacheLastFiltersCleared = filtersCleared;
+  } else if (filtersCleared && !listMemoryCacheLastFiltersCleared) {
+    listMemoryCache.clear();
+    listMemoryCacheLastFiltersCleared = true;
+  } else {
+    listMemoryCacheLastFiltersCleared = filtersCleared;
+  }
+
+  const cacheParams = { ...normalized, page, size };
+  const cacheKey = buildListCacheKey(idx.etag, cacheParams);
+
+  const serveCached = (payload) => {
+    if (!payload) return null;
+    if (page === 1 && filtersCleared && ifE && ifE === idx.etag) {
+      return { ok: true, etag: idx.etag, not_modified: true, total: payload.total, page: 1, page_size: size };
+    }
+    return payload;
+  };
+
+  const memoryCached = listMemoryCache.get(cacheKey);
+  if (memoryCached) {
+    const cachedResponse = serveCached(memoryCached);
+    if (cachedResponse) return cachedResponse;
+  }
+
+  if (ifE && ifE === idx.etag && page === 1 && filtersCleared) {
     return { ok: true, etag: idx.etag, not_modified: true, total: idx.rows.length, page: 1, page_size: size };
+  }
+
+  const kvCached = await env.MIXOLOGY.get(cacheKey, { type: 'json' });
+  if (kvCached && kvCached.etag === idx.etag) {
+    listMemoryCache.set(cacheKey, kvCached);
+    const cachedResponse = serveCached(kvCached);
+    if (cachedResponse) return cachedResponse;
   }
 
   const filteredIndexes = filterIndex(idx, q, tag, cat, mood);
@@ -665,7 +723,7 @@ async function handleList(qp, env, ctx) {
     }
   }
 
-  return {
+  const result = {
     ok: true,
     etag: idx.etag,
     total, page, page_size: size,
@@ -673,6 +731,14 @@ async function handleList(qp, env, ctx) {
     posts,
     categories
   };
+
+  listMemoryCache.set(cacheKey, result);
+
+  const expirationTtl = Math.max(60, Math.min(120, Number(env.LIST_CACHE_TTL_SECONDS || 90)));
+  const putList = env.MIXOLOGY.put(cacheKey, JSON.stringify(result), { expirationTtl });
+  scheduleBackground(ctx, putList, 'list_cache_write');
+
+  return result;
 }
 
 async function handlePost(slug, env, ctx) {
