@@ -1950,12 +1950,27 @@
     imageCache: new Map(), // Cache for loaded images
     urlCache: new Map(), // Cache for converted URLs
     persistentCache: null, // Persistent localStorage cache
+    persistentCacheDirty: false,
+    persistentSaveHandle: null,
+    persistentSaveType: null,
+    persistenceEventsBound: false,
     
     // Initialize persistent image cache
     initPersistentCache() {
       if (!this.persistentCache) {
         const cached = CacheManager.get('mixology:images');
         this.persistentCache = cached ? new Map(Object.entries(cached.data || {})) : new Map();
+      }
+
+      if (!this.persistenceEventsBound && typeof window !== 'undefined') {
+        this.persistenceEventsBound = true;
+        const flush = () => this.flushPersistentCache();
+        window.addEventListener('beforeunload', flush);
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'hidden') {
+            flush();
+          }
+        });
       }
     },
 
@@ -1964,8 +1979,48 @@
       try {
         const cacheData = Object.fromEntries(this.persistentCache);
         CacheManager.put('mixology:images', { data: cacheData }, 24 * 60 * 60 * 1000); // 24 hours
+        this.persistentCacheDirty = false;
       } catch (error) {
         console.warn('Failed to save image cache:', error);
+      }
+    },
+
+    schedulePersistentSave() {
+      if (this.persistentSaveHandle !== null) {
+        return;
+      }
+
+      const runSave = () => {
+        this.persistentSaveHandle = null;
+        this.persistentSaveType = null;
+        if (this.persistentCacheDirty) {
+          this.savePersistentCache();
+        }
+      };
+
+      if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+        this.persistentSaveType = 'idle';
+        this.persistentSaveHandle = window.requestIdleCallback(runSave);
+      } else {
+        this.persistentSaveType = 'timeout';
+        this.persistentSaveHandle = setTimeout(runSave, 0);
+      }
+    },
+
+    flushPersistentCache() {
+      if (this.persistentSaveHandle !== null) {
+        if (this.persistentSaveType === 'idle' && typeof window !== 'undefined' && typeof window.cancelIdleCallback === 'function') {
+          window.cancelIdleCallback(this.persistentSaveHandle);
+        }
+        if (this.persistentSaveType === 'timeout') {
+          clearTimeout(this.persistentSaveHandle);
+        }
+        this.persistentSaveHandle = null;
+        this.persistentSaveType = null;
+      }
+
+      if (this.persistentCacheDirty) {
+        this.savePersistentCache();
       }
     },
 
@@ -1979,7 +2034,8 @@
     cacheImageUrl(slug, imageUrl) {
       this.initPersistentCache();
       this.persistentCache.set(slug, imageUrl);
-      this.savePersistentCache();
+      this.persistentCacheDirty = true;
+      this.schedulePersistentSave();
     },
 
     convertToDirectImageUrl(url) {
