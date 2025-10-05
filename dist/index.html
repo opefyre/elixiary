@@ -1954,10 +1954,6 @@
       thumb: 'w400-h400',
       detail: 'w1200-h1200'
     },
-    persistentCacheDirty: false,
-    persistentSaveHandle: null,
-    persistentSaveType: null,
-    persistenceEventsBound: false,
     
     // Initialize persistent image cache
     initPersistentCache() {
@@ -2387,6 +2383,11 @@
     }
   }
   };
+
+  ImageManager.persistentCacheDirty = false;
+  ImageManager.persistentSaveHandle = null;
+  ImageManager.persistentSaveType = null;
+  ImageManager.persistenceEventsBound = false;
 
   // ===== UI COMPONENTS =====
   const UIComponents = {
