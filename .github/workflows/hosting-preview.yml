@@ -21,6 +21,8 @@ jobs:
 
       # Deploy PR to a temporary preview channel
       - name: Deploy preview
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
