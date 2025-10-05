@@ -72,7 +72,42 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   
   <!-- Structured Data -->
-<script type="application/ld+json" src="/assets/structured-data.json"></script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://www.elixiary.com/#org",
+            "name": "Elixiary",
+            "url": "https://www.elixiary.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "url": "https://www.elixiary.com/og-image.jpg"
+            },
+            "sameAs": [
+              "https://instagram.com/elixiary.ai",
+              "https://tiktok.com/@elixiary.ai"
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://www.elixiary.com/#website",
+            "url": "https://www.elixiary.com/",
+            "name": "Elixiary",
+            "description": "Discover and explore an extensive collection of cocktail recipes",
+            "inLanguage": "en",
+            "isAccessibleForFree": true,
+            "publisher": { "@id": "https://www.elixiary.com/#org" },
+            "potentialAction": {
+              "@type": "SearchAction",
+              "target": "https://www.elixiary.com/?q={search_term_string}",
+              "query-input": "required name=search_term_string"
+            }
+          }
+        ]
+      }
+    </script>
 
   <style>
     :root{
