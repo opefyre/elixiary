@@ -450,12 +450,23 @@ async function handleList(qp, env, ctx) {
   const slice = (start < total) ? filtered.slice(start, end) : [];
   const posts = slice.map(serializeRow);
 
+  const seenCategories = new Set();
+  const categories = [];
+  for (const row of filtered) {
+    const category = row && row.category;
+    if (category && !seenCategories.has(category)) {
+      seenCategories.add(category);
+      categories.push(category);
+    }
+  }
+
   return {
     ok: true,
     etag: idx.etag,
     total, page, page_size: size,
     has_more: end < total,
-    posts
+    posts,
+    categories
   };
 }
 
