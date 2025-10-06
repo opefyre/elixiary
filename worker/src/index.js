@@ -10,7 +10,7 @@
 //   VARS:  SHEET_ID, SHEET_NAME
 //          (either) GOOGLE_SA_JSON  ← recommended (full Service Account JSON; Sheet shared with its client_email as Viewer)
 //          (or)     GOOGLE_API_KEY  ← fallback (requires public sheet)
-//   VARS (optional): ALLOWED_ORIGINS (csv, supports wildcards like https://*.web.app)
+//   VARS (optional): ALLOWED_ORIGINS (csv, supports wildcards like https://*.web.app or https://elixiary--*.web.app)
 //                    CACHE_TTL_SECONDS (default 300)
 //                    PAGE_DEFAULT (default 12), PAGE_MAX (default 48)
 //                    RL_LIMIT (default 60), RL_WINDOW_SEC (default 60)
@@ -255,7 +255,70 @@ function setListMemoryCacheEntry(key, value, ttlMs, maxEntries = LIST_MEMORY_CAC
   listMemoryCache.set(key, { value, insertedAt: now });
 }
 
-// CORS with wildcard support (e.g. https://*.web.app)
+// CORS with wildcard support (e.g. https://*.web.app, https://elixiary--*.web.app)
+export function createOriginMatcher(patterns = []) {
+  const compiled = [];
+  let allowAll = false;
+
+  for (const pattern of patterns) {
+    const value = (pattern || '').trim();
+    if (!value) continue;
+    if (value === '*') {
+      allowAll = true;
+      continue;
+    }
+
+    const compiledPattern = compileCorsPattern(value);
+    if (compiledPattern) compiled.push(compiledPattern);
+  }
+
+  return {
+    allowAll,
+    test(origin) {
+      if (!origin) return false;
+      let url;
+      try {
+        url = new URL(origin);
+      } catch (_) {
+        return false;
+      }
+
+      const proto = url.protocol.toLowerCase();
+      const host = url.host.toLowerCase();
+
+      for (const entry of compiled) {
+        if (entry.protocol !== proto) continue;
+        if (entry.hostRegex.test(host)) return true;
+        if (entry.allowBareSuffix && host === entry.allowBareSuffix) return true;
+      }
+      return false;
+    }
+  };
+}
+
+function compileCorsPattern(pattern) {
+  const match = pattern.match(/^(https?):\/\/([^/]+)$/i);
+  if (!match) return null;
+
+  const protocol = `${match[1].toLowerCase()}:`;
+  const hostPattern = match[2];
+  const allowBareSuffix = hostPattern.startsWith('*.')
+    ? hostPattern.slice(2).toLowerCase()
+    : null;
+
+  const escaped = hostPattern
+    .split('*')
+    .map(escapeRegExp)
+    .join('.*');
+
+  const hostRegex = new RegExp(`^${escaped}$`, 'i');
+  return { protocol, hostRegex, allowBareSuffix };
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function corsHeaders(env, origin) {
   const expose = 'ETag, Cache-Control, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset';
   const headers = { 'Vary': 'Origin', 'Access-Control-Expose-Headers': expose };
@@ -275,34 +338,16 @@ function corsHeaders(env, origin) {
     ...(raw ? raw.split(/[,\s]+/).map(s => s.trim()).filter(Boolean) : [])
   ];
 
-  if (patterns.includes('*')) {
+  const matcher = createOriginMatcher(patterns);
+  if (matcher.allowAll) {
     headers['Access-Control-Allow-Origin'] = '*';
     return headers;
   }
 
-  let ok = false;
-  try {
-    const o = new URL(origin);
-    const host = o.host;
-    const proto = o.protocol;
+  if (matcher.test(origin)) {
+    headers['Access-Control-Allow-Origin'] = origin;
+  }
 
-    for (const p of patterns) {
-      if (!p) continue;
-      const isWildcard = p.includes('*.');
-      if (isWildcard) {
-        // pattern like https://*.web.app
-        const m = p.match(/^(https?:\/\/)\*\.(.+)$/i);
-        if (!m) continue;
-        const pProto = m[1];
-        const suffix = m[2];
-        if (proto === pProto && (host === suffix || host.endsWith('.' + suffix))) { ok = true; break; }
-      } else {
-        if (origin === p) { ok = true; break; }
-      }
-    }
-  } catch (_) {}
-
-  if (ok) headers['Access-Control-Allow-Origin'] = origin;
   return headers;
 }
 
