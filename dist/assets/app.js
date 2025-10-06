@@ -1812,10 +1812,12 @@
 
       const slug = Utils.normalizeSlug(location.pathname);
       const filtersEl = Utils.$('#filters');
+      const searchWrap = Utils.$('.nav-controls .search-wrap');
 
       if (!slug) {
         // Home page - show filters
         if (filtersEl) filtersEl.style.display = 'block';
+        if (searchWrap) searchWrap.style.display = '';
         Utils.setTitle();
         Utils.updateShareUrls();
         return Renderer.renderList(true);
@@ -1830,6 +1832,7 @@
           filtersEl.style.margin = '0';
           filtersEl.style.padding = '0';
         }
+        if (searchWrap) searchWrap.style.display = 'none';
         return Renderer.renderDetail(slug);
       }
     }
