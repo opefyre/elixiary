@@ -160,6 +160,12 @@ gtag('event', 'page_view', {
 });
 
 
+Manual QA regression – analytics consent gate (2024-10-20):
+
+- First visit (no stored consent): Launch Chrome DevTools → Network tab, filter for `gtag`/`collect`, then hard-refresh. Confirm the GA network request does **not** appear until clicking **Allow analytics** on the consent banner, after which the script loads immediately.
+- Returning visit (consent granted): With consent stored from the prior step, refresh and confirm the GA script is requested immediately without re-showing the banner.
+
+
 SEO:
 
 Search Console and Bing verified via HTML files in dist/
