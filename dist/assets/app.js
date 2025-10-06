@@ -1939,6 +1939,8 @@
         Router.init();
         GlobalInteractions.init();
 
+        FilterManager.setupSearchHandlers();
+
         const slug = Utils.normalizeSlug(location.pathname);
         const filtersEl = Utils.$('#filters');
         if (filtersEl) {
