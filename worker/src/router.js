@@ -41,45 +41,43 @@ export function createFetchHandler({ rateLimiter, handleList, handlePost, getInd
         }
       }
 
-      if (method === 'HEAD' && path.startsWith('/v1/')) {
-        return new Response(null, {
-          status: 200,
-          headers: { ...cors, 'Cache-Control': 'public, max-age=60', 'X-Content-Type-Options': 'nosniff' }
-        });
-      }
+      let response;
 
       if (path === '/v1/list') {
         const qp = objFromSearch(url.searchParams);
         const data = await handleList(qp, env, ctx);
-        return json(data, 200, {
+        response = json(data, 200, {
           ...cors,
           'ETag': data.etag,
           'Cache-Control': 'public, max-age=60',
           'X-Content-Type-Options': 'nosniff'
         });
-      }
-
-      if (path.startsWith('/v1/post/')) {
+      } else if (path.startsWith('/v1/post/')) {
         const slug = decodeURIComponent(path.slice('/v1/post/'.length));
         const data = await handlePost(slug, env, ctx);
         const status = data.ok ? 200 : (data.code || 404);
-        return json(data, status, {
+        response = json(data, status, {
           ...cors,
           'Cache-Control': 'public, max-age=60',
           'X-Content-Type-Options': 'nosniff'
         });
-      }
-
-      if (path === '/v1/debug') {
+      } else if (path === '/v1/debug') {
         const idx = await getIndex(env, ctx);
-        return json({ ok: true, total: idx.rows.length, sample: idx.rows.slice(0, 3).map(serializeRow) }, 200, {
+        response = json({ ok: true, total: idx.rows.length, sample: idx.rows.slice(0, 3).map(serializeRow) }, 200, {
           ...cors,
           'Cache-Control': 'no-store',
           'X-Content-Type-Options': 'nosniff'
         });
+      } else {
+        response = new Response('Not found', { status: 404, headers: cors });
       }
 
-      return new Response('Not found', { status: 404, headers: cors });
+      if (method === 'HEAD') {
+        const headers = new Headers(response.headers);
+        return new Response(null, { status: response.status, headers });
+      }
+
+      return response;
     } catch (err) {
       return json({ ok: false, error: String(err) }, 500, { ...cors, 'X-Content-Type-Options': 'nosniff' });
     }
