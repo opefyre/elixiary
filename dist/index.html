@@ -255,6 +255,35 @@
     }
     .container{max-width:1120px; margin:0 auto; padding:0 20px}
     .nav{height:64px; display:flex; align-items:center; gap:14px; justify-content:space-between}
+    .nav-controls{flex:1; display:flex; align-items:center; gap:16px; justify-content:flex-end;}
+    .nav-controls .search-wrap{flex:1;}
+    .theme-control{display:flex; align-items:center; gap:8px; background:transparent;}
+    .theme-control label{font-size:14px; font-weight:600; color:var(--muted);}
+    .theme-control select{
+      appearance:none;
+      background:var(--soft);
+      color:var(--text);
+      border:1px solid var(--line);
+      border-radius:var(--radius-sm);
+      padding:8px 12px;
+      font-size:14px;
+      font-weight:600;
+      cursor:pointer;
+      transition:background var(--fade), color var(--fade), border-color var(--fade), box-shadow var(--fade);
+    }
+    .theme-control select:focus{
+      outline:none;
+      border-color:var(--accent);
+      box-shadow:var(--ring);
+    }
+    [data-theme="dark"] .theme-control select{
+      background:var(--soft-dark);
+      color:var(--text-dark);
+      border-color:var(--line-dark);
+    }
+    [data-theme="dark"] .theme-control select:focus{
+      box-shadow:var(--ring-dark);
+    }
     .brand{font-weight:700; letter-spacing:.01em; display:flex; align-items:center; gap:10px}
     .home-icon{
       color: var(--accent);
@@ -334,10 +363,18 @@
         display: none; /* Hide subtitle on mobile */
       }
       
+      .nav-controls { gap: 12px; }
       .search-wrap {
         flex: 1;
         min-width: 0;
         max-width: calc(100% - 160px);
+      }
+      .theme-control label {
+        display: none;
+      }
+      .theme-control select {
+        padding: 6px 10px;
+        font-size: 13px;
       }
       
       .search {
@@ -369,22 +406,31 @@
         gap: 8px;
         padding: 0 12px;
       }
-      
+
+      .nav-controls {
+        gap: 8px;
+      }
+
       .brand {
         max-width: 120px;
       }
-      
+
       .brand-name {
         font-size: 1.2rem;
       }
-      
+
+      .theme-control select {
+        padding: 4px 8px;
+        font-size: 12px;
+      }
+
       .home-icon {
         width: 18px;
         height: 18px;
       }
-      
+
       .search-wrap {
-        max-width: calc(100% - 140px);
+        max-width: none;
       }
       
       .search {
@@ -414,29 +460,38 @@
         gap: 6px;
         padding: 0 8px;
       }
-      
+
+      .nav-controls {
+        gap: 6px;
+      }
+
       .brand {
         max-width: 100px;
       }
-      
+
       .brand-name {
         font-size: 1.1rem;
       }
-      
+
       .home-icon {
         width: 16px;
         height: 16px;
       }
-      
+
       .search-wrap {
-        max-width: calc(100% - 120px);
+        max-width: none;
       }
-      
+
       .search {
         padding: 4px 8px !important;
         height: 32px !important;
       }
-      
+
+      .theme-control select {
+        padding: 3px 6px;
+        font-size: 11px;
+      }
+
       .search input {
         font-size: 12px !important;
         padding: 0 !important;
@@ -1337,27 +1392,37 @@
             <span class="brand-subtitle">Craft Perfect Cocktails</span>
           </div>
         </a>
-        <div class="search-wrap">
-          <div class="search" role="search">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M21 21l-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-            <label for="q" class="sr-only">Search recipes</label>
-            <input 
-              id="q" 
-              type="search"
-              placeholder="Search..." 
-              autocomplete="off"
-              aria-label="Search recipes by name, tag, mood, or ingredient"
-              aria-describedby="search-help"
-            />
-            <button id="clear" class="clear" type="button" aria-label="Clear search">
-              <span aria-hidden="true">✕</span>
-              <span class="sr-only">Clear</span>
-            </button>
+        <div class="nav-controls">
+          <div class="search-wrap">
+            <div class="search" role="search">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M21 21l-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <label for="q" class="sr-only">Search recipes</label>
+              <input
+                id="q"
+                type="search"
+                placeholder="Search..."
+                autocomplete="off"
+                aria-label="Search recipes by name, tag, mood, or ingredient"
+                aria-describedby="search-help"
+              />
+              <button id="clear" class="clear" type="button" aria-label="Clear search">
+                <span aria-hidden="true">✕</span>
+                <span class="sr-only">Clear</span>
+              </button>
+            </div>
+            <div id="search-help" class="sr-only">
+              Use this search to find cocktail recipes by name, ingredients, tags, or mood
+            </div>
           </div>
-          <div id="search-help" class="sr-only">
-            Use this search to find cocktail recipes by name, ingredients, tags, or mood
+          <div class="theme-control" role="group" aria-label="Theme selection">
+            <label for="theme-select">Theme</label>
+            <select id="theme-select" aria-label="Theme preference">
+              <option value="auto">Auto</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
           </div>
         </div>
       </nav>
