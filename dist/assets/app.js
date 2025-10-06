@@ -25,6 +25,7 @@
     requestId: 0,
     isOnline: navigator.onLine,
     theme: 'light',
+    themePreference: 'auto',
     categorySet: new Set(),
     categorySignature: '',
     searchHandlersBound: false,
@@ -393,41 +394,185 @@
 
   // ===== THEME MANAGEMENT =====
   const ThemeManager = {
+    STORAGE_KEY: 'elixiary:theme-preference',
+    control: null,
+    intervalId: null,
+    mode: 'auto',
+    mql: null,
+    osListener: null,
+
     init() {
-      this.applyTheme(this.detectTheme());
-      this.setupTimeBasedTheme();
+      this.mql = typeof window !== 'undefined' && window.matchMedia
+        ? window.matchMedia('(prefers-color-scheme: dark)')
+        : null;
+
+      this.bindThemeControls();
+
+      const { theme, mode } = this.detectTheme();
+      this.applyTheme(theme, mode);
+      this.setupOsPreferenceListener();
     },
 
-    detectTheme() {
+    getStoredPreference() {
       try {
-        const now = new Date();
-        const hour = now.getHours();
-        
-        // Dark theme from 6 PM (18:00) to 6 AM (06:00)
-        // Light theme from 6 AM (06:00) to 6 PM (18:00)
-        const isDarkTime = hour >= 18 || hour < 6;
-        
-        return isDarkTime ? 'dark' : 'light';
+        return localStorage.getItem(this.STORAGE_KEY);
       } catch (error) {
-        console.warn('Failed to detect theme based on time, defaulting to light theme:', error);
-        return 'light';
+        console.warn('Unable to access stored theme preference:', error);
+        return null;
       }
     },
 
-    applyTheme(theme) {
+    setStoredPreference(value) {
+      try {
+        localStorage.setItem(this.STORAGE_KEY, value);
+      } catch (error) {
+        console.warn('Unable to persist theme preference:', error);
+      }
+    },
+
+    bindThemeControls() {
+      const select = Utils.$('#theme-select');
+      if (!select) return;
+
+      this.control = select;
+      const stored = this.getStoredPreference();
+      const initial = ['light', 'dark', 'auto'].includes(stored) ? stored : 'auto';
+
+      select.value = initial;
+      AppState.themePreference = initial;
+      this.mode = initial;
+
+      select.addEventListener('change', (event) => {
+        const selected = event.target.value || 'auto';
+        const normalized = ['light', 'dark'].includes(selected) ? selected : 'auto';
+
+        AppState.themePreference = normalized;
+        this.mode = normalized;
+        this.setStoredPreference(normalized);
+
+        if (normalized === 'auto') {
+          const { theme } = this.detectTheme();
+          this.applyTheme(theme, 'auto');
+        } else {
+          this.applyTheme(normalized, normalized);
+        }
+      });
+    },
+
+    detectTheme() {
+      const storedPreference = this.getStoredPreference();
+      const mode = ['light', 'dark', 'auto'].includes(storedPreference)
+        ? storedPreference
+        : (this.mode || 'auto');
+
+      if (mode === 'light' || mode === 'dark') {
+        this.mode = mode;
+        return { theme: mode, mode };
+      }
+
+      let prefersDark = false;
+      try {
+        prefersDark = this.mql ? this.mql.matches : window.matchMedia('(prefers-color-scheme: dark)').matches;
+      } catch (error) {
+        console.warn('Unable to check system theme preference:', error);
+      }
+
+      if (prefersDark) {
+        this.mode = 'auto';
+        return { theme: 'dark', mode: 'auto' };
+      }
+
+      let theme = 'light';
+      try {
+        const hour = new Date().getHours();
+        const isDarkTime = hour >= 18 || hour < 6;
+        theme = isDarkTime ? 'dark' : 'light';
+      } catch (error) {
+        console.warn('Failed to detect theme based on time, defaulting to light theme:', error);
+      }
+
+      this.mode = 'auto';
+      return { theme, mode: 'auto' };
+    },
+
+    applyTheme(theme, mode = 'auto') {
       document.body.setAttribute('data-theme', theme);
       AppState.theme = theme;
-      console.log(`Applied ${theme} theme based on time of day`);
+      AppState.themePreference = mode;
+      this.mode = mode;
+
+      if (this.control && this.control.value !== mode) {
+        this.control.value = mode;
+      }
+
+      if (mode === 'auto') {
+        this.setupTimeBasedTheme();
+        this.runOsConsistencyCheck();
+      } else {
+        this.teardownTimeBasedTheme();
+      }
+
+      console.log(`Applied ${theme} theme (${mode} mode)`);
+    },
+
+    setupOsPreferenceListener() {
+      if (!this.mql) return;
+
+      const listener = () => {
+        if (this.mode === 'auto') {
+          const { theme } = this.detectTheme();
+          if (theme !== AppState.theme) {
+            this.applyTheme(theme, 'auto');
+          } else {
+            this.runOsConsistencyCheck();
+          }
+        }
+      };
+
+      if (typeof this.mql.addEventListener === 'function') {
+        this.mql.addEventListener('change', listener);
+      } else if (typeof this.mql.addListener === 'function') {
+        this.mql.addListener(listener);
+      }
+
+      this.osListener = listener;
+    },
+
+    runOsConsistencyCheck() {
+      if (this.mode === 'auto' && this.mql && this.mql.matches) {
+        console.assert(
+          AppState.theme === 'dark',
+          'OS-level dark mode should remain active throughout the day when using auto theme.'
+        );
+      }
     },
 
     setupTimeBasedTheme() {
-      // Check for theme changes every minute
-      setInterval(() => {
-        const newTheme = this.detectTheme();
-        if (newTheme !== AppState.theme) {
-          this.applyTheme(newTheme);
+      if (this.intervalId || this.mode !== 'auto') {
+        this.runOsConsistencyCheck();
+        return;
+      }
+
+      this.intervalId = setInterval(() => {
+        if (this.mode !== 'auto') {
+          this.teardownTimeBasedTheme();
+          return;
         }
-      }, 60000); // Check every minute
+
+        const { theme } = this.detectTheme();
+        if (theme !== AppState.theme) {
+          this.applyTheme(theme, 'auto');
+        } else {
+          this.runOsConsistencyCheck();
+        }
+      }, 60000);
+    },
+
+    teardownTimeBasedTheme() {
+      if (this.intervalId) {
+        clearInterval(this.intervalId);
+        this.intervalId = null;
+      }
     }
   };
 
