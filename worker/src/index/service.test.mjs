@@ -1,0 +1,68 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import { createIndexService } from './service.js';
+
+test('getIndex persists indefinitely and omits expirationTtl when TTL <= 0', async (t) => {
+  const originalFetch = global.fetch;
+  const fetchCalls = [];
+  const putCalls = [];
+
+  global.fetch = async (url) => {
+    fetchCalls.push(url);
+    return {
+      ok: true,
+      json: async () => ({
+        values: [
+          ['Name', 'Image_URL', 'Category', 'Tags', 'Mood_Labels', 'Prep_Time', 'Difficulty', 'Date', 'Ingredients_JSON', 'Instructions', 'Glass', 'Garnish'],
+          ['Test Drink', 'https://example.com/image.jpg', 'Classics', 'citrus,refreshing', 'happy', '5', 'Easy', '2024-01-01', '[]', 'Shake well', 'Coupe', 'Lime'],
+        ],
+      }),
+    };
+  };
+
+  t.after(() => {
+    global.fetch = originalFetch;
+  });
+
+  const mixologyStore = {
+    get: async () => null,
+    put: (...args) => {
+      putCalls.push(args);
+      return Promise.resolve();
+    },
+  };
+
+  const env = {
+    SHEET_ID: 'sheet123',
+    SHEET_NAME: 'Sheet1',
+    GOOGLE_API_KEY: 'apikey',
+    CACHE_TTL_SECONDS: 0,
+    MIXOLOGY: mixologyStore,
+  };
+
+  const scheduled = [];
+  const { getIndex } = createIndexService({
+    scheduleBackground: (_ctx, promise, tag) => {
+      scheduled.push(tag);
+      return promise;
+    },
+  });
+
+  const ctx = {};
+
+  const index = await getIndex(env, ctx);
+  assert.ok(index);
+  assert.equal(fetchCalls.length, 1);
+  assert.equal(putCalls.length, 1);
+  assert.equal(putCalls[0].length, 2);
+  assert.equal(putCalls[0][0], 'idx_v1');
+  assert.equal(typeof putCalls[0][1], 'string');
+
+  const indexAgain = await getIndex(env, ctx);
+  assert.strictEqual(indexAgain, index);
+  assert.equal(fetchCalls.length, 1);
+  assert.equal(putCalls.length, 1);
+
+  assert.ok(scheduled.includes('index_cache_write'));
+});

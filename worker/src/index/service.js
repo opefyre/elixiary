@@ -33,8 +33,9 @@ export function createIndexService({ listCache = createListCache(), scheduleBack
   async function getIndex(env, ctx, opts = {}) {
     const ttlRaw = Number(env.CACHE_TTL_SECONDS || 300);
     const ttl = Number.isFinite(ttlRaw) ? ttlRaw : 300;
-    const kvTtl = Math.max(0, ttl);
-    const ttlMs = kvTtl * 1000;
+    const shouldExpire = ttl > 0;
+    const kvTtl = shouldExpire ? ttl : 0;
+    const ttlMs = shouldExpire ? kvTtl * 1000 : Infinity;
     const forceRebuild = opts.forceRebuild === true;
     const now = Date.now();
 
@@ -56,7 +57,11 @@ export function createIndexService({ listCache = createListCache(), scheduleBack
         const built = await buildIndexFromSheet(env);
         memoryIndex = built;
         memoryIndexExpiry = Date.now() + ttlMs;
-        const write = env.MIXOLOGY.put('idx_v1', JSON.stringify(built), { expirationTtl: kvTtl });
+        const writeArgs = ['idx_v1', JSON.stringify(built)];
+        if (shouldExpire) {
+          writeArgs.push({ expirationTtl: kvTtl });
+        }
+        const write = env.MIXOLOGY.put(...writeArgs);
         scheduleBackground(ctx, write, 'index_cache_write');
         return built;
       })();
