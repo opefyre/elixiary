@@ -48,11 +48,6 @@ function applyConsent(consented) {
   });
 }
 
-const storedConsent = readStoredConsent();
-if (typeof storedConsent === 'boolean') {
-  applyConsent(storedConsent);
-}
-
 function loadAnalyticsLibrary() {
   if (document.getElementById('ga-gtag-script')) return;
   const script = document.createElement('script');
@@ -70,7 +65,13 @@ function loadAnalyticsLibrary() {
   document.head.appendChild(script);
 }
 
-loadAnalyticsLibrary();
+const storedConsent = readStoredConsent();
+if (typeof storedConsent === 'boolean') {
+  applyConsent(storedConsent);
+  if (storedConsent === true) {
+    loadAnalyticsLibrary();
+  }
+}
 
 function showConsentBanner() {
   if (typeof storedConsent === 'boolean') {
@@ -136,6 +137,7 @@ function showConsentBanner() {
   allowBtn.addEventListener('click', () => {
     persistConsent(true);
     applyConsent(true);
+    loadAnalyticsLibrary();
     bar.remove();
   });
 
