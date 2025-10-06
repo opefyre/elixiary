@@ -437,7 +437,13 @@
         padding: 6px 10px !important;
         height: 36px !important;
       }
-      
+
+      .clear {
+        padding: 0 8px !important;
+        font-size: 11px !important;
+        height: 100% !important;
+      }
+
       .search input {
         font-size: 13px !important;
         padding: 0 !important;
@@ -559,17 +565,20 @@
       font-family: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
       font-weight: 400;
     }
-    .clear{ 
-      display:none; 
-      border:1px solid var(--line); 
-      border-radius:999px; 
-      padding:4px 8px; 
-      font-size:12px; 
+    .clear{
+      display:none;
+      align-items:center;
+      justify-content:center;
+      border:1px solid var(--line);
+      border-radius:999px;
+      padding:0 10px;
+      font-size:12px;
       color:var(--muted);
-      background:var(--bg); 
-      cursor:pointer; 
+      background:var(--bg);
+      cursor:pointer;
       transition:transform var(--fade), box-shadow var(--fade), border-color var(--fade);
-      min-height: 44px; /* Better touch target */
+      height:100%;
+      min-height:0;
     }
     .clear:hover{transform:translateY(-1px); box-shadow:0 6px 14px rgba(16,24,40,.08)}
     .clear:focus{outline:none; box-shadow:var(--ring)}
