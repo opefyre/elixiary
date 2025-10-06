@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createOriginMatcher } from './index.js';
+import { createOriginMatcher } from './router.js';
 
 test('direct origin matches', () => {
   const matcher = createOriginMatcher(['https://example.com']);
