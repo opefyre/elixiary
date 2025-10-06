@@ -1190,7 +1190,7 @@
 
     mergeCategories(posts, categories) {
       if (Array.isArray(categories)) {
-        AppState.categorySet = new Set(categories.filter(Boolean));
+        AppState.categorySet = new Set(this.sortCategories(categories.filter(Boolean)));
       } else if (!(AppState.categorySet instanceof Set)) {
         AppState.categorySet = new Set();
       }
@@ -1206,10 +1206,13 @@
           AppState.categorySet.add(post.category);
         }
       });
+
+      const sorted = this.sortCategories(AppState.categorySet);
+      AppState.categorySet = new Set(sorted);
     },
 
     buildChips() {
-      const categories = Array.from(AppState.categorySet || []);
+      const categories = this.sortCategories(AppState.categorySet);
       const signature = categories.join('|');
 
       if (AppState.chipsBuilt && AppState.categorySignature === signature) {
@@ -1223,6 +1226,16 @@
 
       AppState.chipsBuilt = true;
       AppState.categorySignature = signature;
+    },
+
+    sortCategories(items) {
+      const arr = Array.from(items || []);
+      return arr.sort((a, b) => {
+        const labelA = Utils.labelize(a);
+        const labelB = Utils.labelize(b);
+        if (labelA === labelB) return 0;
+        return labelA.localeCompare(labelB, undefined, { sensitivity: 'base' });
+      });
     },
 
     createChipGroup(items, key, selector) {
