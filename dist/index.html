@@ -1006,6 +1006,8 @@
         padding: 28px 32px;
         gap: 24px;
         max-height: min(65vh, 520px);
+        min-height: 0;
+        overflow: hidden;
       }
 
       .filters-body {
@@ -1030,6 +1032,8 @@
       .filter-groups {
         overflow-y: auto;
         padding-right: 12px;
+        flex: 1;
+        min-height: 0;
       }
 
       .filter-chips {
@@ -1048,6 +1052,9 @@
       .filter-chips[data-scrollable="true"] {
         mask-image: none;
         -webkit-mask-image: none;
+        max-height: 160px;
+        overflow-y: auto;
+        padding-right: 8px;
       }
     }
     
