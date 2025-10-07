@@ -40,7 +40,8 @@
       homeScript: null,
       homeMarkup: '',
       recipeScript: null
-    }
+    },
+    filtersExpanded: true
   };
 
   // ===== UTILITIES =====
@@ -1240,6 +1241,125 @@
     };
   }
 
+  const FilterPanel = {
+    init() {
+      this.section = Utils.$('#filters');
+      this.body = Utils.$('#filters-body');
+      this.toggleBtn = Utils.$('#filters-toggle');
+
+      if (!this.section || !this.body || !this.toggleBtn) {
+        return;
+      }
+
+      this.toggleLabel = this.toggleBtn.querySelector('.filters-toggle__label');
+      this.countBadge = Utils.$('#filters-active-count');
+      this.countBadgeSr = Utils.$('#filters-active-count-sr');
+      this.userPreference = null;
+
+      this.toggleBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        this.setExpanded(!this.isExpanded());
+      });
+
+      this.mediaQuery = window.matchMedia('(min-width: 1024px)');
+
+      const applyBreakpoint = (mq) => {
+        if (mq.matches) {
+          this.setExpanded(true, { silent: true, bypassPreference: true });
+        } else {
+          const targetState = this.userPreference !== null ? this.userPreference : false;
+          this.setExpanded(targetState, { silent: true, bypassPreference: true });
+        }
+      };
+
+      applyBreakpoint(this.mediaQuery);
+
+      const listener = (event) => applyBreakpoint(event);
+      if (typeof this.mediaQuery.addEventListener === 'function') {
+        this.mediaQuery.addEventListener('change', listener);
+      } else if (typeof this.mediaQuery.addListener === 'function') {
+        this.mediaQuery.addListener(listener);
+      }
+
+      this.toggleBtn.setAttribute('aria-controls', 'filters-body');
+
+      this.updateActiveCount();
+
+      const slug = Utils.normalizeSlug(location.pathname);
+      if (!slug) {
+        this.onListView();
+      } else {
+        this.onDetailView();
+      }
+    },
+
+    isExpanded() {
+      if (!this.section) return false;
+      return this.section.getAttribute('data-expanded') !== 'false';
+    },
+
+    setExpanded(expanded, options = {}) {
+      if (!this.section || !this.toggleBtn) return;
+
+      const { silent = false, bypassPreference = false } = options;
+      const normalized = !!expanded;
+
+      if (!bypassPreference) {
+        this.userPreference = normalized;
+      } else if (this.userPreference === null) {
+        this.userPreference = normalized;
+      }
+
+      AppState.filtersExpanded = normalized;
+
+      this.section.setAttribute('data-expanded', normalized ? 'true' : 'false');
+      this.toggleBtn.setAttribute('aria-expanded', normalized ? 'true' : 'false');
+
+      if (this.toggleLabel) {
+        const collapsed = this.toggleLabel.dataset.labelCollapsed || 'Show filters';
+        const expandedLabel = this.toggleLabel.dataset.labelExpanded || 'Hide filters';
+        this.toggleLabel.textContent = normalized ? expandedLabel : collapsed;
+      }
+
+      if (!silent) {
+        Utils.announce(normalized ? 'Filters expanded' : 'Filters collapsed');
+      }
+    },
+
+    updateActiveCount() {
+      if (!this.toggleBtn) return;
+
+      const activeCount = Object.values(AppState.filter || {})
+        .filter((value) => value !== null && value !== '').length;
+
+      if (this.countBadge) {
+        this.countBadge.textContent = activeCount > 0 ? String(activeCount) : '';
+        this.countBadge.classList.toggle('is-visible', activeCount > 0);
+      }
+
+      this.toggleBtn.classList.toggle('has-active', activeCount > 0);
+
+      if (this.countBadgeSr) {
+        this.countBadgeSr.textContent = activeCount > 0
+          ? `${activeCount} active filter${activeCount === 1 ? '' : 's'}`
+          : 'No active filters';
+      }
+    },
+
+    onListView() {
+      if (!this.section) return;
+      this.section.setAttribute('aria-hidden', 'false');
+      if (this.mediaQuery && this.mediaQuery.matches) {
+        this.setExpanded(true, { silent: true, bypassPreference: true });
+      }
+    },
+
+    onDetailView() {
+      if (!this.section) return;
+      this.section.setAttribute('aria-hidden', 'true');
+    }
+  };
+
   const FilterManager = {
     reset() {
       AppState.filterSets = AppState.filterSets || {};
@@ -1500,7 +1620,12 @@
 
     renderActiveFilters() {
       const container = Utils.$('#active-filters');
-      if (!container) return;
+      if (!container) {
+        if (FilterPanel && typeof FilterPanel.updateActiveCount === 'function') {
+          FilterPanel.updateActiveCount();
+        }
+        return;
+      }
 
       const active = [];
       for (const [key, config] of Object.entries(FILTER_GROUP_DEFS)) {
@@ -1518,6 +1643,9 @@
         container.innerHTML = '';
         container.classList.remove('has-active');
         container.removeAttribute('role');
+        if (FilterPanel && typeof FilterPanel.updateActiveCount === 'function') {
+          FilterPanel.updateActiveCount();
+        }
         return;
       }
 
@@ -1532,12 +1660,18 @@
       `).join('');
 
       container.innerHTML = `
-        <span class="active-filter-label">Active filters:</span>
+        <div class="active-filters__header">
+          <span class="active-filter-label">Active filters</span>
+          <button type="button" class="active-filter-clear" data-clear="all">Clear all</button>
+        </div>
         <div class="active-filter-list">${chips}</div>
-        <button type="button" class="active-filter-clear" data-clear="all">Clear all</button>
       `;
       container.classList.add('has-active');
       container.setAttribute('role', 'status');
+
+      if (FilterPanel && typeof FilterPanel.updateActiveCount === 'function') {
+        FilterPanel.updateActiveCount();
+      }
 
       this.setupActiveFilterHandlers();
     },
@@ -2108,6 +2242,9 @@
         // Home page - show filters
         if (filtersEl) filtersEl.style.display = 'block';
         if (searchWrap) searchWrap.style.display = '';
+        if (FilterPanel && typeof FilterPanel.onListView === 'function') {
+          FilterPanel.onListView();
+        }
         Utils.setTitle();
         Utils.updateShareUrls();
         return Renderer.renderList(true);
@@ -2121,6 +2258,9 @@
           filtersEl.style.overflow = 'hidden';
           filtersEl.style.margin = '0';
           filtersEl.style.padding = '0';
+        }
+        if (FilterPanel && typeof FilterPanel.onDetailView === 'function') {
+          FilterPanel.onDetailView();
         }
         if (searchWrap) searchWrap.style.display = 'none';
         return Renderer.renderDetail(slug);
@@ -2233,6 +2373,7 @@
         GlobalInteractions.init();
 
         FilterManager.setupSearchHandlers();
+        FilterPanel.init();
 
         const slug = Utils.normalizeSlug(location.pathname);
         const filtersEl = Utils.$('#filters');
@@ -2292,6 +2433,7 @@
       APIClient,
       ThemeManager,
       ErrorHandler,
+      FilterPanel,
       FilterManager,
       Renderer,
       Router
