@@ -4,86 +4,86 @@
 
   <!-- Core pages -->
   <url>
-    <loc>https://elixiary.com/</loc>
+    <loc>https://www.elixiary.com/</loc>
     <lastmod>2025-09-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://elixiary.com/privacy</loc>
+    <loc>https://www.elixiary.com/privacy</loc>
     <lastmod>2025-09-21</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://elixiary.com/terms</loc>
+    <loc>https://www.elixiary.com/terms</loc>
     <lastmod>2025-09-21</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://elixiary.com/contact</loc>
+    <loc>https://www.elixiary.com/contact</loc>
     <lastmod>2025-09-21</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
 
   <!-- Recipes -->
-  <url><loc>https://elixiary.com/252</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/747</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/110-in-the-shade</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/151-florida-bushwacker</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/155-belmont</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/1800-coco-pinarita</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/24k-nightmare</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/3-wise-men</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/3-mile-long-island-iced-tea</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/410-gone</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/50-50</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/501-blue</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/57-chevy-with-a-white-license-plate</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/69-special</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/747-drink</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/9-1-2-weeks</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/a-j</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/a1</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/aam-panna</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/aamras</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/abc</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/abilene</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/acapulco</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/ace</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/acid</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/across-the-pacific</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/adam</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/addington</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/addison</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/adios-motherfucker-amf</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/adonis</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/adult-hot-chocolate</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/affair</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/affinity</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/affogato</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/afterglow</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/agua-de-bandindo</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/agua-de-valencia</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/aguapanela</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/airmail</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/ajoblanco</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/alexander</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/algonquin</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/alien-brain-hemorrhage</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/allegheny</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/almeria</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/almond-banana-smoothie</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/amaretto-sour</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/amarula-thai-tea</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/american-trilogy</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/americano</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/amritulya-chai</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/angel-face</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/angevine-soup</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/apello</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://elixiary.com/aperol-spritz</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/252</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/747</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/110-in-the-shade</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/151-florida-bushwacker</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/155-belmont</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/1800-coco-pinarita</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/24k-nightmare</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/3-wise-men</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/3-mile-long-island-iced-tea</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/410-gone</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/50-50</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/501-blue</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/57-chevy-with-a-white-license-plate</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/69-special</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/747-drink</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/9-1-2-weeks</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/a-j</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/a1</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/aam-panna</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/aamras</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/abc</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/abilene</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/acapulco</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/ace</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/acid</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/across-the-pacific</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/adam</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/addington</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/addison</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/adios-motherfucker-amf</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/adonis</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/adult-hot-chocolate</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/affair</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/affinity</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/affogato</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/afterglow</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/agua-de-bandindo</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/agua-de-valencia</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/aguapanela</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/airmail</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/ajoblanco</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/alexander</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/algonquin</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/alien-brain-hemorrhage</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/allegheny</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/almeria</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/almond-banana-smoothie</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/amaretto-sour</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/amarula-thai-tea</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/american-trilogy</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/americano</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/amritulya-chai</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/angel-face</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/angevine-soup</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/apello</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.elixiary.com/aperol-spritz</loc><lastmod>2025-09-21</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
 
 </urlset>

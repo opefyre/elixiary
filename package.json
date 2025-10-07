@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "description": "Build-time utilities for the Elixiary static site",
   "scripts": {
-    "prerender": "node scripts/prerender-home.js"
+    "prerender": "node scripts/prerender-home.js",
+    "postprerender": "node scripts/update-canonical-domain.js"
   },
   "dependencies": {
     "cheerio": "^1.0.0-rc.12",
