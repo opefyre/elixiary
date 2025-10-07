@@ -626,7 +626,7 @@
     .filter-section:last-child {
       margin-bottom: 0;
     }
-    
+
     .filter-label {
       font-size: 14px;
       font-weight: 600;
@@ -635,17 +635,119 @@
       text-transform: uppercase;
       margin-bottom: 8px;
     }
-    
-    .filter-chips {
+
+    .active-filters {
+      display: none;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .active-filters.has-active {
+      display: flex;
+    }
+
+    .active-filter-label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+
+    .active-filter-list {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
+      flex: 1;
+    }
+
+    .active-filter-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      background: var(--soft);
+      border: 1px solid var(--line);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: all var(--fade);
+    }
+
+    .active-filter-chip:hover,
+    .active-filter-chip:focus {
+      outline: none;
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(17,24,39,.08);
+    }
+
+    .active-filter-chip span[aria-hidden="true"] {
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    .active-filter-clear {
+      border: none;
+      background: transparent;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      padding: 6px 8px;
+      margin-left: auto;
+    }
+
+    .active-filter-clear:hover,
+    .active-filter-clear:focus {
+      text-decoration: underline;
+      outline: none;
+    }
+    
+    .filter-chips {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 4px 0 8px;
+      margin: 0;
+      scroll-snap-type: x proximity;
+      scrollbar-width: thin;
+    }
+
+    .filter-chips::after {
+      content: '';
+      flex: 0 0 12px;
+    }
+
+    .filter-chips[data-scrollable="true"] {
+      -webkit-overflow-scrolling: touch;
+      mask-image: linear-gradient(90deg, transparent, rgba(0,0,0,0.85) 32px, rgba(0,0,0,0.85) calc(100% - 32px), transparent);
+      -webkit-mask-image: linear-gradient(90deg, transparent, rgba(0,0,0,0.85) 32px, rgba(0,0,0,0.85) calc(100% - 32px), transparent);
+    }
+
+    .filter-chips::-webkit-scrollbar {
+      height: 6px;
+    }
+
+    .filter-chips::-webkit-scrollbar-thumb {
+      background: var(--line);
+      border-radius: 999px;
+    }
+
+    .filter-chips::-webkit-scrollbar-track {
+      background: transparent;
     }
     
     .chip{
-      border: 1px solid var(--line); 
-      background: var(--bg); 
-      color: var(--text); 
+      border: 1px solid var(--line);
+      background: var(--bg);
+      color: var(--text);
       padding: 10px 16px;
       border-radius: var(--radius-sm);
       font-size: 13px;
@@ -657,6 +759,7 @@
       align-items: center;
       position: relative;
       overflow: hidden;
+      scroll-snap-align: start;
     }
     
     .chip::before {
@@ -727,21 +830,34 @@
       .filters {
         padding: 24px 32px;
       }
-      
+
       .filter-section {
         flex-direction: row;
         align-items: center;
         gap: 20px;
         margin-bottom: 24px;
       }
-      
+
       .filter-label {
         min-width: 120px;
         margin-bottom: 0;
       }
-      
+
       .filter-chips {
         flex: 1;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .filter-chips {
+        flex-wrap: wrap;
+        overflow-x: visible;
+        padding-bottom: 0;
+        scroll-snap-type: none;
+      }
+
+      .filter-chips::after {
+        content: none;
       }
     }
     
@@ -1455,7 +1571,14 @@
           <div class="filter-label" id="category-label">Category</div>
           <div id="cat" class="filter-chips" role="group" aria-labelledby="category-label"></div>
         </div>
-        
+
+        <div class="filter-section">
+          <div class="filter-label" id="mood-label">Mood</div>
+          <div id="mood" class="filter-chips" role="group" aria-labelledby="mood-label"></div>
+        </div>
+
+        <div id="active-filters" class="active-filters" aria-live="polite"></div>
+
         <div class="results-count">
           <span class="results-text">
             <span class="results-number" id="count" aria-live="polite">0</span> recipes found

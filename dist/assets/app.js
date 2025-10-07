@@ -13,7 +13,7 @@
 
   // ===== STATE MANAGEMENT =====
   const AppState = {
-    filter: { category: null, q: '' },
+    filter: { category: null, mood: null, q: '' },
     etag: null,
     page: 1,
     hasMore: true,
@@ -26,8 +26,14 @@
     isOnline: navigator.onLine,
     theme: 'light',
     themePreference: 'auto',
-    categorySet: new Set(),
-    categorySignature: '',
+    filterSets: {
+      category: new Set(),
+      mood: new Set()
+    },
+    filterSignatures: {
+      category: '',
+      mood: ''
+    },
     searchHandlersBound: false,
     globalHandlersBound: false,
     schema: {
@@ -271,7 +277,8 @@
   const CacheManager = {
     keyBase: () => 'mixology:index:' + JSON.stringify({
       q: AppState.filter.q,
-      category: AppState.filter.category
+      category: AppState.filter.category,
+      mood: AppState.filter.mood
     }),
     
     get: (key) => {
@@ -349,6 +356,7 @@
       
       if (AppState.filter.q) url.searchParams.set('q', AppState.filter.q);
       if (AppState.filter.category) url.searchParams.set('category', AppState.filter.category);
+      if (AppState.filter.mood) url.searchParams.set('mood', AppState.filter.mood);
 
       if (ifEtag) {
         url.searchParams.set('if_etag', ifEtag);
@@ -1181,54 +1189,155 @@
   };
 
   // ===== FILTER MANAGEMENT =====
+  const FILTER_GROUP_DEFS = {
+    category: {
+      selector: '#cat',
+      normalize: (value) => String(value || '').trim().toLowerCase()
+        .replace(/^(cat|glass|style|strength|flavor|energy|occ)_/, '')
+        .replace(/[\s/-]+/g, '_')
+        .replace(/[^a-z0-9_]/g, ''),
+      placeholders: {
+        unknown_other: { drop: true, label: 'Other' },
+        unknownother: { drop: true, label: 'Other' }
+      },
+      extractFromPost: (post) => {
+        if (post && post.category) return [post.category];
+        return [];
+      },
+      ariaLabel: (label) => `Filter by category: ${label}`,
+      announceLabel: 'Category'
+    },
+    mood: {
+      selector: '#mood',
+      normalize: (value) => String(value || '').trim().toLowerCase()
+        .replace(/[\s/-]+/g, '_')
+        .replace(/[^a-z0-9_]/g, ''),
+      extractFromPost: (post) => {
+        if (post && Array.isArray(post.mood_labels)) {
+          return post.mood_labels.filter(Boolean);
+        }
+        return [];
+      },
+      ariaLabel: (label) => `Filter by mood: ${label}`,
+      announceLabel: 'Mood'
+    }
+  };
+
+  function extractFilterPayload(payload) {
+    const clone = (arr) => Array.isArray(arr) ? arr.slice() : [];
+    if (!payload || typeof payload !== 'object') {
+      return { category: [], mood: [] };
+    }
+    if (payload.filters && typeof payload.filters === 'object') {
+      return {
+        category: clone(payload.filters.category),
+        mood: clone(payload.filters.mood)
+      };
+    }
+    return {
+      category: clone(payload.categories),
+      mood: clone(payload.moods)
+    };
+  }
+
   const FilterManager = {
     reset() {
-      AppState.categorySet = new Set();
-      AppState.categorySignature = '';
+      AppState.filterSets = AppState.filterSets || {};
+      AppState.filterSignatures = AppState.filterSignatures || {};
+      for (const key of Object.keys(FILTER_GROUP_DEFS)) {
+        AppState.filterSets[key] = new Set();
+        AppState.filterSignatures[key] = '';
+      }
       AppState.chipsBuilt = false;
     },
 
-    mergeCategories(posts, categories) {
-      if (Array.isArray(categories)) {
-        AppState.categorySet = new Set(this.sortCategories(categories.filter(Boolean)));
-      } else if (!(AppState.categorySet instanceof Set)) {
-        AppState.categorySet = new Set();
+    ensureSet(key) {
+      if (!AppState.filterSets || typeof AppState.filterSets !== 'object') {
+        AppState.filterSets = {};
       }
-
-      if (!Array.isArray(posts) || !posts.length) return;
-
-      if (!(AppState.categorySet instanceof Set)) {
-        AppState.categorySet = new Set();
+      if (!(AppState.filterSets[key] instanceof Set)) {
+        AppState.filterSets[key] = new Set();
       }
+      return AppState.filterSets[key];
+    },
 
-      posts.forEach(post => {
-        if (post && post.category) {
-          AppState.categorySet.add(post.category);
+    mergeFilters(posts, aggregates = {}) {
+      for (const [key, config] of Object.entries(FILTER_GROUP_DEFS)) {
+        const incoming = aggregates[key];
+        if (Array.isArray(incoming)) {
+          const normalizedIncoming = incoming
+            .map(value => String(value ?? '').trim())
+            .filter(Boolean);
+          AppState.filterSets[key] = new Set(this.sortItems(normalizedIncoming));
+        } else {
+          this.ensureSet(key);
         }
-      });
 
-      const sorted = this.sortCategories(AppState.categorySet);
-      AppState.categorySet = new Set(sorted);
+        if (!Array.isArray(posts) || !posts.length) continue;
+
+        const extractor = typeof config.extractFromPost === 'function'
+          ? config.extractFromPost
+          : null;
+
+        if (!extractor) continue;
+
+        const setRef = this.ensureSet(key);
+        posts.forEach(post => {
+          const values = extractor(post) || [];
+          if (Array.isArray(values)) {
+            values.forEach(value => {
+              if (value !== undefined && value !== null) {
+                const trimmed = String(value).trim();
+                if (trimmed) {
+                  setRef.add(trimmed);
+                }
+              }
+            });
+          } else if (values !== undefined && values !== null) {
+            const trimmed = String(values).trim();
+            if (trimmed) {
+              setRef.add(trimmed);
+            }
+          }
+        });
+
+        AppState.filterSets[key] = new Set(this.sortItems(setRef));
+      }
     },
 
     buildChips() {
-      const categories = this.sortCategories(AppState.categorySet);
-      const signature = categories.join('|');
+      AppState.filterSets = AppState.filterSets || {};
+      AppState.filterSignatures = AppState.filterSignatures || {};
 
-      if (AppState.chipsBuilt && AppState.categorySignature === signature) {
-        this.updateChipStates();
-        return;
+      let chipsChanged = false;
+
+      for (const [key, config] of Object.entries(FILTER_GROUP_DEFS)) {
+        const setRef = this.ensureSet(key);
+        const values = this.sortItems(setRef);
+        const signature = values.join('|');
+
+        if (AppState.chipsBuilt && AppState.filterSignatures[key] === signature) {
+          this.updateChipStates(key);
+          continue;
+        }
+
+        this.createChipGroup(values, key, config);
+        AppState.filterSignatures[key] = signature;
+        chipsChanged = true;
       }
 
-      this.createChipGroup(categories, 'category', '#cat');
-      this.setupChipHandlers();
-      this.setupSearchHandlers();
+      if (chipsChanged) {
+        this.setupChipHandlers();
+      } else {
+        this.updateAllChipStates();
+      }
 
+      this.setupSearchHandlers();
       AppState.chipsBuilt = true;
-      AppState.categorySignature = signature;
+      this.renderActiveFilters();
     },
 
-    sortCategories(items) {
+    sortItems(items) {
       const arr = Array.from(items || []);
       return arr.sort((a, b) => {
         const labelA = Utils.labelize(a);
@@ -1238,25 +1347,30 @@
       });
     },
 
-    createChipGroup(items, key, selector) {
+    createChipGroup(items, key, config = {}) {
+      const configObj = (config && typeof config === 'object' && !Array.isArray(config))
+        ? config
+        : { selector: typeof config === 'string' ? config : undefined };
+
+      const baseConfig = FILTER_GROUP_DEFS[key] || {};
+      const effectiveConfig = { ...baseConfig, ...configObj };
+
+      const selector = effectiveConfig.selector || `#${key}`;
       const container = Utils.$(selector);
       if (!container) return;
 
-      const placeholderCategories = {
-        unknown_other: { drop: true, label: 'Other' },
-        unknownother: { drop: true, label: 'Other' }
-      };
-
+      const placeholders = effectiveConfig.placeholders || {};
       const seen = new Set();
       const sanitizedItems = [];
 
       (items || []).forEach(rawValue => {
         const value = String(rawValue ?? '').trim();
         if (!value) return;
-        const normalized = this.normalizeCategoryKey(value);
+
+        const normalized = this.normalizeValue(value, key, effectiveConfig);
         if (!normalized || seen.has(normalized)) return;
 
-        const rule = placeholderCategories[normalized];
+        const rule = placeholders[normalized];
         if (rule && rule.drop) return;
 
         seen.add(normalized);
@@ -1266,65 +1380,92 @@
         sanitizedItems.push({ value: chipValue, label: chipLabel });
       });
 
+      const isScrollable = sanitizedItems.length > (effectiveConfig.scrollThreshold ?? 8);
+      if (container.dataset && typeof container.dataset === 'object') {
+        container.dataset.scrollable = isScrollable ? 'true' : 'false';
+      } else if (typeof container.setAttribute === 'function') {
+        container.setAttribute('data-scrollable', isScrollable ? 'true' : 'false');
+      }
+
+      const ariaFn = typeof effectiveConfig.ariaLabel === 'function'
+        ? effectiveConfig.ariaLabel
+        : (label) => `Filter by ${key}: ${label}`;
+
       const chips = [
         `<button class="chip ${AppState.filter[key] === null ? 'is-active' : ''}"
                  data-k="${key}"
                  data-v=""
                  type="button"
                  role="button"
-                 aria-pressed="${AppState.filter[key] === null ? 'true' : 'false'}">
+                 aria-pressed="${AppState.filter[key] === null ? 'true' : 'false'}"
+                 aria-label="Show all ${(effectiveConfig.announceLabel || key)} options">
            <span>All</span>
          </button>`
       ];
 
       sanitizedItems.forEach(({ value, label }) => {
+        const isActive = AppState.filter[key] === value;
         chips.push(`
-          <button class="chip ${AppState.filter[key] === value ? 'is-active' : ''}"
+          <button class="chip ${isActive ? 'is-active' : ''}"
                    data-k="${key}"
                    data-v="${Utils.esc(value)}"
                    type="button"
                    role="button"
-                   aria-pressed="${AppState.filter[key] === value ? 'true' : 'false'}"
-                   aria-label="Filter by ${key}: ${Utils.esc(label)}">
-            <span>${Utils.esc(label)}</span>
-          </button>
-        `);
+                   aria-pressed="${isActive ? 'true' : 'false'}"
+                    aria-label="${Utils.esc(ariaFn(label))}">
+          <span>${Utils.esc(label)}</span>
+        </button>
+      `);
       });
 
       container.innerHTML = chips.join('');
     },
 
-    normalizeCategoryKey(value) {
+    normalizeValue(value, key, configOverride) {
+      const config = configOverride || FILTER_GROUP_DEFS[key] || {};
+      if (typeof config.normalize === 'function') {
+        return config.normalize(value);
+      }
       const normalized = String(value || '').trim().toLowerCase();
       if (!normalized) return '';
       return normalized
-        .replace(/^(cat|glass|style|strength|flavor|energy|occ)_/, '')
         .replace(/[\s/-]+/g, '_')
         .replace(/[^a-z0-9_]/g, '');
     },
 
-    updateChipStates() {
-      Utils.$$('.chip[data-k="category"]').forEach(btn => {
-        const isActive = (btn.dataset.v || '') === (AppState.filter.category || '');
+    updateChipStates(key) {
+      const buttons = typeof key === 'string'
+        ? Utils.$$(`.chip[data-k="${key}"]`)
+        : Utils.$$('.chip[data-k]');
+
+      buttons.forEach(btn => {
+        const btnKey = btn.dataset.k;
+        if (!btnKey) return;
+        const btnValue = btn.dataset.v ?? '';
+        const isActive = (btnValue === '' && AppState.filter[btnKey] === null)
+          || (btnValue !== '' && AppState.filter[btnKey] === btnValue);
         btn.classList.toggle('is-active', isActive);
         btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
       });
     },
 
+    updateAllChipStates() {
+      this.updateChipStates();
+    },
+
     setupChipHandlers() {
-      Utils.$$('.chip').forEach(btn => {
-        // Clone the button to remove all event listeners
+      Utils.$$('.chip[data-k]').forEach(btn => {
         const newBtn = btn.cloneNode(true);
         btn.parentNode.replaceChild(newBtn, btn);
       });
-      
-      // Add fresh event listeners
-      Utils.$$('.chip').forEach(btn => {
-        btn.addEventListener('click', this.handleChipClick.bind(this));
+
+      const clickHandler = this.handleChipClick.bind(this);
+      Utils.$$('.chip[data-k]').forEach(btn => {
+        btn.addEventListener('click', clickHandler);
         btn.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            this.handleChipClick(e);
+            clickHandler(e);
           }
         });
       });
@@ -1333,22 +1474,114 @@
     handleChipClick(e) {
       e.preventDefault();
       e.stopPropagation();
-      
-      const btn = e.target.closest('.chip');
+
+      const btn = e.target.closest('.chip[data-k]');
       if (!btn) return;
-      
+
       const key = btn.dataset.k;
-      const val = btn.dataset.v || null;
-      
       if (!key) return;
-      
+
+      const rawVal = btn.dataset.v ?? '';
+      const val = rawVal === '' ? null : rawVal;
+
       AppState.filter[key] = val;
       CacheManager.clearSearch();
-      
-      this.updateChipStates();
-      
-      Utils.announce(`Filter changed to ${key}: ${val || 'All'}`);
+
+      this.updateChipStates(key);
+
+      const config = FILTER_GROUP_DEFS[key] || {};
+      const announceLabel = config.announceLabel || key;
+      const spokenValue = val ? Utils.labelize(val) : 'All';
+      Utils.announce(`${announceLabel} filter set to ${spokenValue}`);
+      this.renderActiveFilters();
+
       Renderer.renderList(true);
+    },
+
+    renderActiveFilters() {
+      const container = Utils.$('#active-filters');
+      if (!container) return;
+
+      const active = [];
+      for (const [key, config] of Object.entries(FILTER_GROUP_DEFS)) {
+        const value = AppState.filter[key];
+        if (!value) continue;
+        active.push({
+          key,
+          value,
+          label: Utils.labelize(value),
+          displayLabel: config.announceLabel || Utils.labelize(key)
+        });
+      }
+
+      if (!active.length) {
+        container.innerHTML = '';
+        container.classList.remove('has-active');
+        container.removeAttribute('role');
+        return;
+      }
+
+      const chips = active.map(({ key, label, displayLabel }) => `
+        <button type="button"
+                class="active-filter-chip"
+                data-clear="${key}"
+                aria-label="Clear ${Utils.esc(displayLabel)} filter ${Utils.esc(label)}">
+          <span class="active-filter-chip__text">${Utils.esc(displayLabel)}: ${Utils.esc(label)}</span>
+          <span aria-hidden="true">×</span>
+        </button>
+      `).join('');
+
+      container.innerHTML = `
+        <span class="active-filter-label">Active filters:</span>
+        <div class="active-filter-list">${chips}</div>
+        <button type="button" class="active-filter-clear" data-clear="all">Clear all</button>
+      `;
+      container.classList.add('has-active');
+      container.setAttribute('role', 'status');
+
+      this.setupActiveFilterHandlers();
+    },
+
+    setupActiveFilterHandlers() {
+      const container = Utils.$('#active-filters');
+      if (!container) return;
+
+      container.querySelectorAll('button[data-clear]').forEach(btn => {
+        btn.addEventListener('click', (event) => {
+          event.preventDefault();
+          const key = event.currentTarget.dataset.clear;
+
+          if (key === 'all') {
+            let changed = false;
+            for (const filterKey of Object.keys(FILTER_GROUP_DEFS)) {
+              if (AppState.filter[filterKey] !== null) {
+                AppState.filter[filterKey] = null;
+                changed = true;
+              }
+            }
+
+            if (!changed) return;
+
+            CacheManager.clearSearch();
+            this.updateAllChipStates();
+            this.renderActiveFilters();
+            Utils.announce('All filters cleared');
+            Renderer.renderList(true);
+            return;
+          }
+
+          if (!FILTER_GROUP_DEFS[key]) return;
+          if (AppState.filter[key] === null) return;
+
+          AppState.filter[key] = null;
+          CacheManager.clearSearch();
+          this.updateChipStates(key);
+          this.renderActiveFilters();
+          const announceLabel = FILTER_GROUP_DEFS[key].announceLabel || key;
+          Utils.announce(`${announceLabel} filter cleared`);
+          Renderer.renderList(true);
+        });
+      });
     },
 
     setupSearchHandlers() {
@@ -1363,7 +1596,7 @@
           clearBtn?.classList.toggle('show', !!AppState.filter.q);
           CacheManager.clearSearch();
           Renderer.renderList(true);
-          
+
           if (AppState.filter.q) {
             Utils.announce(`Searching for: ${AppState.filter.q}`);
           }
@@ -1428,7 +1661,8 @@
       const cached = CacheManager.get(pageKey);
 
       if (cached) {
-        Renderer.appendCards(cached.posts, cached.categories);
+        const cachedFilters = extractFilterPayload(cached);
+        Renderer.appendCards(cached.posts, cachedFilters);
         FilterManager.buildChips();
         AppState.page = nextPage;
         AppState.hasMore = cached.has_more;
@@ -1444,20 +1678,23 @@
           AppState.etag = data.etag;
           CacheManager.put('mixology:etag', { val: AppState.etag });
         }
-        
+
+        const pageFilters = extractFilterPayload(data);
         CacheManager.put(pageKey, {
           etag: AppState.etag,
           posts: data.posts,
           total: data.total,
           has_more: data.has_more,
-          categories: data.categories
+          filters: pageFilters,
+          categories: pageFilters.category,
+          moods: pageFilters.mood
         });
 
-        Renderer.appendCards(data.posts, data.categories);
+        Renderer.appendCards(data.posts, pageFilters);
         FilterManager.buildChips();
         AppState.page = nextPage;
         AppState.hasMore = data.has_more;
-        
+
         Utils.announce(`Loaded ${data.posts.length} more recipes`);
       } else {
         Utils.announce('Failed to load more recipes');
@@ -1516,13 +1753,14 @@
       const baseKey = CacheManager.keyBase();
       const firstKey = `${baseKey}:p1`;
       const cached = CacheManager.get(firstKey);
+      const cachedFilters = extractFilterPayload(cached);
       let latestHasMore = (typeof (cached?.has_more) === 'boolean')
         ? cached.has_more
         : true;
 
       if (reset && cached) {
         AppState.etag = cached.etag || AppState.etag || null;
-        this.paintCards(cached.posts, cached.total, cached.has_more, true, cached.categories);
+        this.paintCards(cached.posts, cached.total, cached.has_more, true, cachedFilters);
         FilterManager.buildChips();
       }
 
@@ -1563,18 +1801,21 @@
       if (!data.not_modified) {
         AppState.etag = data.etag || AppState.etag;
         CacheManager.put('mixology:etag', { val: AppState.etag });
+        const dataFilters = extractFilterPayload(data);
         CacheManager.put(firstKey, {
           etag: AppState.etag,
           posts: data.posts,
           total: data.total,
           has_more: data.has_more,
-          categories: data.categories
+          filters: dataFilters,
+          categories: dataFilters.category,
+          moods: dataFilters.mood
         });
 
-        this.paintCards(data.posts, data.total, data.has_more, true, data.categories);
+        this.paintCards(data.posts, data.total, data.has_more, true, dataFilters);
         FilterManager.buildChips();
         latestHasMore = (typeof data.has_more === 'boolean') ? data.has_more : latestHasMore;
-      } else if (cached && (!Array.isArray(cached.categories) || !cached.categories.length)) {
+      } else if (cached && !cachedFilters.category.length) {
         const refresh = await APIClient.fetchList({ page: 1 });
 
         if (requestToken !== AppState.requestId) {
@@ -1587,15 +1828,18 @@
             CacheManager.put('mixology:etag', { val: AppState.etag });
           }
 
+          const refreshFilters = extractFilterPayload(refresh);
           CacheManager.put(firstKey, {
             etag: AppState.etag,
             posts: refresh.posts,
             total: refresh.total,
             has_more: refresh.has_more,
-            categories: refresh.categories
+            filters: refreshFilters,
+            categories: refreshFilters.category,
+            moods: refreshFilters.mood
           });
 
-          this.paintCards(refresh.posts, refresh.total, refresh.has_more, true, refresh.categories);
+          this.paintCards(refresh.posts, refresh.total, refresh.has_more, true, refreshFilters);
           FilterManager.buildChips();
           latestHasMore = (typeof refresh.has_more === 'boolean') ? refresh.has_more : latestHasMore;
         }
@@ -1608,7 +1852,7 @@
       AppState.retryCount = 0;
     },
 
-    paintCards(posts, total, hasMore, replace, categories) {
+    paintCards(posts, total, hasMore, replace, filters) {
       const view = Utils.$('#view');
       const countEl = Utils.$('#count');
 
@@ -1616,7 +1860,7 @@
         posts = [];
       }
 
-      FilterManager.mergeCategories(posts, categories);
+      FilterManager.mergeFilters(posts, filters);
 
       if (countEl) countEl.textContent = String(total ?? posts.length);
 
@@ -1652,8 +1896,8 @@
       ImageManager.wireImages(AppState.gridEl);
     },
 
-    appendCards(newPosts, categories) {
-      FilterManager.mergeCategories(newPosts, categories);
+    appendCards(newPosts, filters) {
+      FilterManager.mergeFilters(newPosts, filters);
 
       if (!Array.isArray(newPosts) || !newPosts.length) return;
 
