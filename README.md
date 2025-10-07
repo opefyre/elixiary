@@ -50,6 +50,13 @@ firebase.json: headers (cache + security). HTML no-cache; assets immutable 1 yea
 
 dist/*: all site files Firebase serves.
 
+Build-time prerendering:
+
+Run `npm install` once, then `npm run prerender` to fetch the latest recipes
+from the public API and inject them into `dist/index.html`. This updates the
+homepage markup, meta descriptions, Open Graph/Twitter tags, and JSON-LD so the
+static HTML already contains the top recipes before hydration.
+
 B) API repo (Cloudflare Worker)
 
 Purpose: Serverless API in Cloudflare Workers to read Google Sheet, build an index, cache to KV, and respond with JSON.
