@@ -746,6 +746,7 @@
     .filters-body {
       display: grid;
       gap: 20px;
+      scrollbar-width: thin;
     }
 
     .filters[data-expanded="false"] .filters-body {
@@ -755,6 +756,7 @@
     .filter-groups {
       display: grid;
       gap: 20px;
+      scrollbar-width: thin;
     }
 
     .filter-section {
@@ -874,16 +876,23 @@
       -webkit-mask-image: linear-gradient(90deg, transparent, rgba(0,0,0,0.85) 32px, rgba(0,0,0,0.85) calc(100% - 32px), transparent);
     }
 
-    .filter-chips::-webkit-scrollbar {
+    .filter-chips::-webkit-scrollbar,
+    .filters-body::-webkit-scrollbar,
+    .filter-groups::-webkit-scrollbar {
+      width: 6px;
       height: 6px;
     }
 
-    .filter-chips::-webkit-scrollbar-thumb {
+    .filter-chips::-webkit-scrollbar-thumb,
+    .filters-body::-webkit-scrollbar-thumb,
+    .filter-groups::-webkit-scrollbar-thumb {
       background: var(--line);
       border-radius: 999px;
     }
 
-    .filter-chips::-webkit-scrollbar-track {
+    .filter-chips::-webkit-scrollbar-track,
+    .filters-body::-webkit-scrollbar-track,
+    .filter-groups::-webkit-scrollbar-track {
       background: transparent;
     }
 
@@ -980,10 +989,15 @@
       .filters {
         padding: 28px 32px;
         gap: 24px;
+        max-height: min(65vh, 520px);
       }
 
       .filters-body {
         gap: 28px;
+        overflow-y: auto;
+        padding-right: 12px;
+        flex: 1;
+        min-height: 0;
       }
 
       .filter-section {
@@ -995,6 +1009,11 @@
       .filter-label {
         min-width: 140px;
         margin-bottom: 0;
+      }
+
+      .filter-groups {
+        overflow-y: auto;
+        padding-right: 12px;
       }
 
       .filter-chips {
