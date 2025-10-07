@@ -257,7 +257,7 @@
     .nav{height:64px; display:flex; align-items:center; gap:14px; justify-content:space-between}
     .nav-controls{flex:1; display:flex; align-items:center; gap:16px; justify-content:flex-end;}
     .nav-controls .search-wrap{flex:1;}
-    .theme-control{display:flex; align-items:center; gap:8px; background:transparent;}
+    .theme-control{display:flex; align-items:center; gap:8px; background:transparent; flex:0 0 auto;}
     .theme-control label{font-size:14px; font-weight:600; color:var(--muted);}
     .theme-control select{
       appearance:none;
@@ -430,7 +430,7 @@
       }
 
       .search-wrap {
-        max-width: none;
+        max-width: calc(100% - 120px);
       }
       
       .search {
@@ -485,7 +485,7 @@
       }
 
       .search-wrap {
-        max-width: none;
+        max-width: calc(100% - 120px);
       }
 
       .search {
