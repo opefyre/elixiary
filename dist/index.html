@@ -1,14 +1,12 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
+<!DOCTYPE html><html lang="en"><head>
+  <meta charset="utf-8">
   
   <!-- Debug toggles -->
   <script type="module" src="/assets/debug.js"></script>
 
   <!-- SEO & Meta Tags -->
   <title>Elixiary - Discover Amazing Cocktail Recipes</title>
-  <meta name="description" content="Discover and explore an extensive collection of cocktail recipes with detailed ingredients, instructions, and beautiful photography. Find your perfect drink.">
+  <meta name="description" content="Discover cocktails like French Pearl, French Sangria, Frisco Sour and Frosé curated by Elixiary.">
   <meta name="keywords" content="cocktails, recipes, drinks, mixology, bartending, ingredients, alcohol, beverages">
   <meta name="author" content="Elixiary">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -17,16 +15,16 @@
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://www.elixiary.com/">
   <meta property="og:title" content="Elixiary - Discover Amazing Cocktail Recipes">
-  <meta property="og:description" content="Discover and explore an extensive collection of cocktail recipes with detailed ingredients and instructions.">
-  <meta property="og:image" content="https://elixiary.web.app/og-image.jpg">
+  <meta property="og:description" content="Discover cocktails like French Pearl, French Sangria, Frisco Sour and Frosé curated by Elixiary.">
+  <meta property="og:image" content="https://drive.google.com/uc?export=view&amp;id=1es6LFkJovPLcfnclBykQ2zdt-ksMKKRo">
   <meta property="og:site_name" content="Elixiary">
   
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image">
   <meta property="twitter:url" content="https://www.elixiary.com/">
   <meta property="twitter:title" content="Elixiary - Discover Amazing Cocktail Recipes">
-  <meta property="twitter:description" content="Discover and explore an extensive collection of cocktail recipes with detailed ingredients and instructions.">
-  <meta property="twitter:image" content="https://elixiary.web.app/og-image.jpg">
+  <meta property="twitter:description" content="Discover cocktails like French Pearl, French Sangria, Frisco Sour and Frosé curated by Elixiary.">
+  <meta property="twitter:image" content="https://drive.google.com/uc?export=view&amp;id=1es6LFkJovPLcfnclBykQ2zdt-ksMKKRo">
   
   <!-- PWA & Icons -->
   <link rel="manifest" href="/manifest.json">
@@ -42,8 +40,7 @@
   <meta name="apple-mobile-web-app-title" content="Elixiary">
   
 <!-- Security -->
-  <meta http-equiv="Content-Security-Policy"
-    content="
+  <meta http-equiv="Content-Security-Policy" content="
       default-src 'self';
       font-src 'self' https://fonts.gstatic.com;
       style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
@@ -65,49 +62,142 @@
   
   <!-- Resource Hints -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
   <link rel="dns-prefetch" href="https://api.elixiary.com">
   
   <!-- Modern fonts with display swap -->
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
   
   <!-- Structured Data -->
-    <script type="application/ld+json">
-      {
-        "@context": "https://schema.org",
-        "@graph": [
-          {
-            "@type": "Organization",
-            "@id": "https://www.elixiary.com/#org",
-            "name": "Elixiary",
-            "url": "https://www.elixiary.com/",
-            "logo": {
-              "@type": "ImageObject",
-              "url": "https://www.elixiary.com/og-image.jpg"
-            },
-            "sameAs": [
-              "https://instagram.com/elixiary.ai",
-              "https://tiktok.com/@elixiary.ai"
-            ]
-          },
-          {
-            "@type": "WebSite",
-            "@id": "https://www.elixiary.com/#website",
-            "url": "https://www.elixiary.com/",
-            "name": "Elixiary",
-            "description": "Discover and explore an extensive collection of cocktail recipes",
-            "inLanguage": "en",
-            "isAccessibleForFree": true,
-            "publisher": { "@id": "https://www.elixiary.com/#org" },
-            "potentialAction": {
-              "@type": "SearchAction",
-              "target": "https://www.elixiary.com/?q={search_term_string}",
-              "query-input": "required name=search_term_string"
-            }
-          }
-        ]
+    <script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://www.elixiary.com/#org",
+      "name": "Elixiary",
+      "url": "https://www.elixiary.com/",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://www.elixiary.com/og-image.jpg"
+      },
+      "sameAs": [
+        "https://instagram.com/elixiary.ai",
+        "https://tiktok.com/@elixiary.ai"
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://www.elixiary.com/#website",
+      "url": "https://www.elixiary.com/",
+      "name": "Elixiary",
+      "description": "Discover and explore an extensive collection of cocktail recipes",
+      "inLanguage": "en",
+      "isAccessibleForFree": true,
+      "publisher": {
+        "@id": "https://www.elixiary.com/#org"
+      },
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://www.elixiary.com/?q={search_term_string}",
+        "query-input": "required name=search_term_string"
       }
-    </script>
+    },
+    {
+      "@type": "ItemList",
+      "@id": "https://www.elixiary.com/#top-recipes",
+      "name": "Top Cocktail Recipes",
+      "itemListOrder": "http://schema.org/ItemListOrderAscending",
+      "numberOfItems": 12,
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "url": "https://www.elixiary.com/french-pearl",
+          "name": "French Pearl",
+          "image": "https://drive.google.com/uc?export=view&id=1es6LFkJovPLcfnclBykQ2zdt-ksMKKRo"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "url": "https://www.elixiary.com/french-sangria",
+          "name": "French Sangria",
+          "image": "https://drive.google.com/uc?export=view&id=1kv1QKBzo6yZJvNIfpmTUcr4aO78mgnp2"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "url": "https://www.elixiary.com/frisco-sour",
+          "name": "Frisco Sour",
+          "image": "https://drive.google.com/uc?export=view&id=1rh-rJd7RULo6rfQtijMJP3OzaJ3tNG5s"
+        },
+        {
+          "@type": "ListItem",
+          "position": 4,
+          "url": "https://www.elixiary.com/frose",
+          "name": "Frosé",
+          "image": "https://drive.google.com/uc?export=view&id=1GDlFqypYurhaG5Dn-HD9gf_lwYLrlD5w"
+        },
+        {
+          "@type": "ListItem",
+          "position": 5,
+          "url": "https://www.elixiary.com/frosted-lemonade",
+          "name": "Frosted Lemonade",
+          "image": "https://drive.google.com/uc?export=view&id=1SEvorCizc_GrIEXtd9yGqcmSr7qmH_tw"
+        },
+        {
+          "@type": "ListItem",
+          "position": 6,
+          "url": "https://www.elixiary.com/frozen-cantaloupe-margarita",
+          "name": "Frozen Cantaloupe Margarita",
+          "image": "https://drive.google.com/uc?export=view&id=1Yc_BKspz_ajI1G45HLtO-g6QQe2XsfFn"
+        },
+        {
+          "@type": "ListItem",
+          "position": 7,
+          "url": "https://www.elixiary.com/frozen-daiquiri",
+          "name": "Frozen Daiquiri",
+          "image": "https://drive.google.com/uc?export=view&id=1N4jGKOGOHhcGAR_4ur01aFxHpvW_RFt5"
+        },
+        {
+          "@type": "ListItem",
+          "position": 8,
+          "url": "https://www.elixiary.com/frozen-mint-daiquiri",
+          "name": "Frozen Mint Daiquiri",
+          "image": "https://drive.google.com/uc?export=view&id=1bJOtU1onqd4gMQbXkP5ASKpb4_iVfdG9"
+        },
+        {
+          "@type": "ListItem",
+          "position": 9,
+          "url": "https://www.elixiary.com/frozen-pineapple-daiquiri",
+          "name": "Frozen Pineapple Daiquiri",
+          "image": "https://drive.google.com/uc?export=view&id=14ZTD3kgvk3B0oY4CErMW1xW6KMEaiiAm"
+        },
+        {
+          "@type": "ListItem",
+          "position": 10,
+          "url": "https://www.elixiary.com/fruit-cooler",
+          "name": "Fruit Cooler",
+          "image": "https://drive.google.com/uc?export=view&id=1XYGWvdOtIoE9CDmlt1ec9gA5Lo-Idiwb"
+        },
+        {
+          "@type": "ListItem",
+          "position": 11,
+          "url": "https://www.elixiary.com/fruit-flip-flop",
+          "name": "Fruit Flip-Flop",
+          "image": "https://drive.google.com/uc?export=view&id=1DqnB-96Jw2-9MpHowkCaVu-HBbWcmaaz"
+        },
+        {
+          "@type": "ListItem",
+          "position": 12,
+          "url": "https://www.elixiary.com/fruit-shake",
+          "name": "Fruit Shake",
+          "image": "https://drive.google.com/uc?export=view&id=14U6YwT69XKerDzUuoUW-KWVCsYuLUCzR"
+        }
+      ]
+    }
+  ]
+}</script>
 
   <style>
     :root{
@@ -1710,10 +1800,10 @@
   <header id="hdr" role="banner">
     <div class="container">
       <nav class="nav" role="navigation" aria-label="Main navigation">
-        <a href="/" class="brand" aria-label="Elixiary home" data-router-link>
+        <a href="/" class="brand" aria-label="Elixiary home" data-router-link="">
           <svg class="home-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <polyline points="9,22 9,12 15,12 15,22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+            <polyline points="9,22 9,12 15,12 15,22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></polyline>
           </svg>
           <div class="brand-content">
             <span class="brand-name">Elixiary</span>
@@ -1724,17 +1814,10 @@
           <div class="search-wrap">
             <div class="search" role="search">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M21 21l-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M21 21l-4.3-4.3M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
               </svg>
               <label for="q" class="sr-only">Search recipes</label>
-              <input
-                id="q"
-                type="search"
-                placeholder="Search..."
-                autocomplete="off"
-                aria-label="Search recipes by name, tag, mood, or ingredient"
-                aria-describedby="search-help"
-              />
+              <input id="q" type="search" placeholder="Search..." autocomplete="off" aria-label="Search recipes by name, tag, mood, or ingredient" aria-describedby="search-help">
               <button id="clear" class="clear" type="button" aria-label="Clear search">
                 <span aria-hidden="true">✕</span>
                 <span class="sr-only">Clear</span>
@@ -1777,7 +1860,7 @@
               <span id="filters-active-count" class="filters-toggle__count" aria-hidden="true"></span>
               <span id="filters-active-count-sr" class="sr-only">No active filters</span>
               <svg class="filters-toggle__icon" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
               </svg>
             </button>
           </div>
@@ -1798,7 +1881,335 @@
       </section>
 
       <!-- List / Detail -->
-      <div id="view" class="fade-in" role="region" aria-live="polite" aria-label="Recipe content"></div>
+      <div id="view" class="fade-in" role="region" aria-live="polite" aria-label="Recipe content" data-prerendered="true">
+    <section class="grid" role="feed" aria-label="Recipe list">
+      
+    <a class="card fade-in" href="/french-pearl" data-image-url="https://drive.google.com/uc?export=view&amp;id=1es6LFkJovPLcfnclBykQ2zdt-ksMKKRo" data-image-thumb="https://drive.google.com/thumbnail?id=1es6LFkJovPLcfnclBykQ2zdt-ksMKKRo&amp;sz=w1200" data-router-link="" role="article" aria-label="Recipe: French Pearl">
+      <div class="card-body">
+        <h3 class="title">French Pearl</h3>
+        <div class="facts">
+          
+      <div class="fact">
+        <span class="label">Date</span>
+        <span>Sep 29, 2025</span>
+      </div>
+      <div class="fact">
+        <span class="label">Difficulty</span>
+        <span>Medium</span>
+      </div>
+      <div class="fact">
+        <span class="label">Prep</span>
+        <span>4 minutes</span>
+      </div>
+        </div>
+        
+      <div class="pills">
+        <span class="pill">Contemporary Classic</span><span class="pill">Citrus</span><span class="pill">Fruity</span>
+      </div>
+      </div>
+      <div class="thumb-rail skeleton">
+        <img class="thumb" loading="lazy" decoding="async" src="https://drive.google.com/uc?export=view&amp;id=1es6LFkJovPLcfnclBykQ2zdt-ksMKKRo" data-alt="https://drive.google.com/thumbnail?id=1es6LFkJovPLcfnclBykQ2zdt-ksMKKRo&amp;sz=w1200" alt="French Pearl">
+      </div>
+    </a>
+    <a class="card fade-in" href="/french-sangria" data-image-url="https://drive.google.com/uc?export=view&amp;id=1kv1QKBzo6yZJvNIfpmTUcr4aO78mgnp2" data-image-thumb="https://drive.google.com/thumbnail?id=1kv1QKBzo6yZJvNIfpmTUcr4aO78mgnp2&amp;sz=w1200" data-router-link="" role="article" aria-label="Recipe: French Sangria">
+      <div class="card-body">
+        <h3 class="title">French Sangria</h3>
+        <div class="facts">
+          
+      <div class="fact">
+        <span class="label">Date</span>
+        <span>Sep 29, 2025</span>
+      </div>
+      <div class="fact">
+        <span class="label">Difficulty</span>
+        <span>Easy</span>
+      </div>
+      <div class="fact">
+        <span class="label">Prep</span>
+        <span>2 minutes</span>
+      </div>
+        </div>
+        
+      <div class="pills">
+        <span class="pill">Spritz</span><span class="pill">Fruity</span><span class="pill">Season Summer</span>
+      </div>
+      </div>
+      <div class="thumb-rail skeleton">
+        <img class="thumb" loading="lazy" decoding="async" src="https://drive.google.com/uc?export=view&amp;id=1kv1QKBzo6yZJvNIfpmTUcr4aO78mgnp2" data-alt="https://drive.google.com/thumbnail?id=1kv1QKBzo6yZJvNIfpmTUcr4aO78mgnp2&amp;sz=w1200" alt="French Sangria">
+      </div>
+    </a>
+    <a class="card fade-in" href="/frisco-sour" data-image-url="https://drive.google.com/uc?export=view&amp;id=1rh-rJd7RULo6rfQtijMJP3OzaJ3tNG5s" data-image-thumb="https://drive.google.com/thumbnail?id=1rh-rJd7RULo6rfQtijMJP3OzaJ3tNG5s&amp;sz=w1200" data-router-link="" role="article" aria-label="Recipe: Frisco Sour">
+      <div class="card-body">
+        <h3 class="title">Frisco Sour</h3>
+        <div class="facts">
+          
+      <div class="fact">
+        <span class="label">Date</span>
+        <span>Sep 29, 2025</span>
+      </div>
+      <div class="fact">
+        <span class="label">Difficulty</span>
+        <span>Medium</span>
+      </div>
+      <div class="fact">
+        <span class="label">Prep</span>
+        <span>3 minutes</span>
+      </div>
+        </div>
+        
+      <div class="pills">
+        <span class="pill">Classic</span><span class="pill">Sour Family</span><span class="pill">Citrus</span>
+      </div>
+      </div>
+      <div class="thumb-rail skeleton">
+        <img class="thumb" loading="lazy" decoding="async" src="https://drive.google.com/uc?export=view&amp;id=1rh-rJd7RULo6rfQtijMJP3OzaJ3tNG5s" data-alt="https://drive.google.com/thumbnail?id=1rh-rJd7RULo6rfQtijMJP3OzaJ3tNG5s&amp;sz=w1200" alt="Frisco Sour">
+      </div>
+    </a>
+    <a class="card fade-in" href="/frose" data-image-url="https://drive.google.com/uc?export=view&amp;id=1GDlFqypYurhaG5Dn-HD9gf_lwYLrlD5w" data-image-thumb="https://drive.google.com/thumbnail?id=1GDlFqypYurhaG5Dn-HD9gf_lwYLrlD5w&amp;sz=w1200" data-router-link="" role="article" aria-label="Recipe: Frosé">
+      <div class="card-body">
+        <h3 class="title">Frosé</h3>
+        <div class="facts">
+          
+      <div class="fact">
+        <span class="label">Date</span>
+        <span>Sep 29, 2025</span>
+      </div>
+      <div class="fact">
+        <span class="label">Difficulty</span>
+        <span>Hard</span>
+      </div>
+      <div class="fact">
+        <span class="label">Prep</span>
+        <span>8 minutes</span>
+      </div>
+        </div>
+        
+      <div class="pills">
+        <span class="pill">Spritz</span><span class="pill">Fruity</span><span class="pill">Season Summer</span>
+      </div>
+      </div>
+      <div class="thumb-rail skeleton">
+        <img class="thumb" loading="lazy" decoding="async" src="https://drive.google.com/uc?export=view&amp;id=1GDlFqypYurhaG5Dn-HD9gf_lwYLrlD5w" data-alt="https://drive.google.com/thumbnail?id=1GDlFqypYurhaG5Dn-HD9gf_lwYLrlD5w&amp;sz=w1200" alt="Frosé">
+      </div>
+    </a>
+    <a class="card fade-in" href="/frosted-lemonade" data-image-url="https://drive.google.com/uc?export=view&amp;id=1SEvorCizc_GrIEXtd9yGqcmSr7qmH_tw" data-image-thumb="https://drive.google.com/thumbnail?id=1SEvorCizc_GrIEXtd9yGqcmSr7qmH_tw&amp;sz=w1200" data-router-link="" role="article" aria-label="Recipe: Frosted Lemonade">
+      <div class="card-body">
+        <h3 class="title">Frosted Lemonade</h3>
+        <div class="facts">
+          
+      <div class="fact">
+        <span class="label">Date</span>
+        <span>Sep 29, 2025</span>
+      </div>
+      <div class="fact">
+        <span class="label">Difficulty</span>
+        <span>Medium</span>
+      </div>
+      <div class="fact">
+        <span class="label">Prep</span>
+        <span>5 minutes</span>
+      </div>
+        </div>
+        
+      <div class="pills">
+        <span class="pill">Contemporary Classic</span><span class="pill">Citrus</span><span class="pill">Diet Dairy</span>
+      </div>
+      </div>
+      <div class="thumb-rail skeleton">
+        <img class="thumb" loading="lazy" decoding="async" src="https://drive.google.com/uc?export=view&amp;id=1SEvorCizc_GrIEXtd9yGqcmSr7qmH_tw" data-alt="https://drive.google.com/thumbnail?id=1SEvorCizc_GrIEXtd9yGqcmSr7qmH_tw&amp;sz=w1200" alt="Frosted Lemonade">
+      </div>
+    </a>
+    <a class="card fade-in" href="/frozen-cantaloupe-margarita" data-image-url="https://drive.google.com/uc?export=view&amp;id=1Yc_BKspz_ajI1G45HLtO-g6QQe2XsfFn" data-image-thumb="https://drive.google.com/thumbnail?id=1Yc_BKspz_ajI1G45HLtO-g6QQe2XsfFn&amp;sz=w1200" data-router-link="" role="article" aria-label="Recipe: Frozen Cantaloupe Margarita">
+      <div class="card-body">
+        <h3 class="title">Frozen Cantaloupe Margarita</h3>
+        <div class="facts">
+          
+      <div class="fact">
+        <span class="label">Date</span>
+        <span>Sep 29, 2025</span>
+      </div>
+      <div class="fact">
+        <span class="label">Difficulty</span>
+        <span>Medium</span>
+      </div>
+      <div class="fact">
+        <span class="label">Prep</span>
+        <span>5 minutes</span>
+      </div>
+        </div>
+        
+      <div class="pills">
+        <span class="pill">New Era</span><span class="pill">Serve Frozen</span><span class="pill">Citrus</span>
+      </div>
+      </div>
+      <div class="thumb-rail skeleton">
+        <img class="thumb" loading="lazy" decoding="async" src="https://drive.google.com/uc?export=view&amp;id=1Yc_BKspz_ajI1G45HLtO-g6QQe2XsfFn" data-alt="https://drive.google.com/thumbnail?id=1Yc_BKspz_ajI1G45HLtO-g6QQe2XsfFn&amp;sz=w1200" alt="Frozen Cantaloupe Margarita">
+      </div>
+    </a>
+    <a class="card fade-in" href="/frozen-daiquiri" data-image-url="https://drive.google.com/uc?export=view&amp;id=1N4jGKOGOHhcGAR_4ur01aFxHpvW_RFt5" data-image-thumb="https://drive.google.com/thumbnail?id=1N4jGKOGOHhcGAR_4ur01aFxHpvW_RFt5&amp;sz=w1200" data-router-link="" role="article" aria-label="Recipe: Frozen Daiquiri">
+      <div class="card-body">
+        <h3 class="title">Frozen Daiquiri</h3>
+        <div class="facts">
+          
+      <div class="fact">
+        <span class="label">Date</span>
+        <span>Sep 29, 2025</span>
+      </div>
+      <div class="fact">
+        <span class="label">Difficulty</span>
+        <span>Medium</span>
+      </div>
+      <div class="fact">
+        <span class="label">Prep</span>
+        <span>6 minutes</span>
+      </div>
+        </div>
+        
+      <div class="pills">
+        <span class="pill">Sour Family</span><span class="pill">Serve Frozen</span><span class="pill">Citrus</span>
+      </div>
+      </div>
+      <div class="thumb-rail skeleton">
+        <img class="thumb" loading="lazy" decoding="async" src="https://drive.google.com/uc?export=view&amp;id=1N4jGKOGOHhcGAR_4ur01aFxHpvW_RFt5" data-alt="https://drive.google.com/thumbnail?id=1N4jGKOGOHhcGAR_4ur01aFxHpvW_RFt5&amp;sz=w1200" alt="Frozen Daiquiri">
+      </div>
+    </a>
+    <a class="card fade-in" href="/frozen-mint-daiquiri" data-image-url="https://drive.google.com/uc?export=view&amp;id=1bJOtU1onqd4gMQbXkP5ASKpb4_iVfdG9" data-image-thumb="https://drive.google.com/thumbnail?id=1bJOtU1onqd4gMQbXkP5ASKpb4_iVfdG9&amp;sz=w1200" data-router-link="" role="article" aria-label="Recipe: Frozen Mint Daiquiri">
+      <div class="card-body">
+        <h3 class="title">Frozen Mint Daiquiri</h3>
+        <div class="facts">
+          
+      <div class="fact">
+        <span class="label">Date</span>
+        <span>Sep 29, 2025</span>
+      </div>
+      <div class="fact">
+        <span class="label">Difficulty</span>
+        <span>Medium</span>
+      </div>
+      <div class="fact">
+        <span class="label">Prep</span>
+        <span>6 minutes</span>
+      </div>
+        </div>
+        
+      <div class="pills">
+        <span class="pill">Sour Family</span><span class="pill">Serve Frozen</span><span class="pill">Citrus</span>
+      </div>
+      </div>
+      <div class="thumb-rail skeleton">
+        <img class="thumb" loading="lazy" decoding="async" src="https://drive.google.com/uc?export=view&amp;id=1bJOtU1onqd4gMQbXkP5ASKpb4_iVfdG9" data-alt="https://drive.google.com/thumbnail?id=1bJOtU1onqd4gMQbXkP5ASKpb4_iVfdG9&amp;sz=w1200" alt="Frozen Mint Daiquiri">
+      </div>
+    </a>
+    <a class="card fade-in" href="/frozen-pineapple-daiquiri" data-image-url="https://drive.google.com/uc?export=view&amp;id=14ZTD3kgvk3B0oY4CErMW1xW6KMEaiiAm" data-image-thumb="https://drive.google.com/thumbnail?id=14ZTD3kgvk3B0oY4CErMW1xW6KMEaiiAm&amp;sz=w1200" data-router-link="" role="article" aria-label="Recipe: Frozen Pineapple Daiquiri">
+      <div class="card-body">
+        <h3 class="title">Frozen Pineapple Daiquiri</h3>
+        <div class="facts">
+          
+      <div class="fact">
+        <span class="label">Date</span>
+        <span>Sep 29, 2025</span>
+      </div>
+      <div class="fact">
+        <span class="label">Difficulty</span>
+        <span>Medium</span>
+      </div>
+      <div class="fact">
+        <span class="label">Prep</span>
+        <span>6 minutes</span>
+      </div>
+        </div>
+        
+      <div class="pills">
+        <span class="pill">Sour Family</span><span class="pill">Serve Frozen</span><span class="pill">Fruity</span>
+      </div>
+      </div>
+      <div class="thumb-rail skeleton">
+        <img class="thumb" loading="lazy" decoding="async" src="https://drive.google.com/uc?export=view&amp;id=14ZTD3kgvk3B0oY4CErMW1xW6KMEaiiAm" data-alt="https://drive.google.com/thumbnail?id=14ZTD3kgvk3B0oY4CErMW1xW6KMEaiiAm&amp;sz=w1200" alt="Frozen Pineapple Daiquiri">
+      </div>
+    </a>
+    <a class="card fade-in" href="/fruit-cooler" data-image-url="https://drive.google.com/uc?export=view&amp;id=1XYGWvdOtIoE9CDmlt1ec9gA5Lo-Idiwb" data-image-thumb="https://drive.google.com/thumbnail?id=1XYGWvdOtIoE9CDmlt1ec9gA5Lo-Idiwb&amp;sz=w1200" data-router-link="" role="article" aria-label="Recipe: Fruit Cooler">
+      <div class="card-body">
+        <h3 class="title">Fruit Cooler</h3>
+        <div class="facts">
+          
+      <div class="fact">
+        <span class="label">Date</span>
+        <span>Sep 29, 2025</span>
+      </div>
+      <div class="fact">
+        <span class="label">Difficulty</span>
+        <span>Easy</span>
+      </div>
+      <div class="fact">
+        <span class="label">Prep</span>
+        <span>2 minutes</span>
+      </div>
+        </div>
+        
+      <div class="pills">
+        <span class="pill">New Era</span><span class="pill">Fruity</span><span class="pill">Citrus</span>
+      </div>
+      </div>
+      <div class="thumb-rail skeleton">
+        <img class="thumb" loading="lazy" decoding="async" src="https://drive.google.com/uc?export=view&amp;id=1XYGWvdOtIoE9CDmlt1ec9gA5Lo-Idiwb" data-alt="https://drive.google.com/thumbnail?id=1XYGWvdOtIoE9CDmlt1ec9gA5Lo-Idiwb&amp;sz=w1200" alt="Fruit Cooler">
+      </div>
+    </a>
+    <a class="card fade-in" href="/fruit-flip-flop" data-image-url="https://drive.google.com/uc?export=view&amp;id=1DqnB-96Jw2-9MpHowkCaVu-HBbWcmaaz" data-image-thumb="https://drive.google.com/thumbnail?id=1DqnB-96Jw2-9MpHowkCaVu-HBbWcmaaz&amp;sz=w1200" data-router-link="" role="article" aria-label="Recipe: Fruit Flip-Flop">
+      <div class="card-body">
+        <h3 class="title">Fruit Flip-Flop</h3>
+        <div class="facts">
+          
+      <div class="fact">
+        <span class="label">Date</span>
+        <span>Sep 29, 2025</span>
+      </div>
+      <div class="fact">
+        <span class="label">Difficulty</span>
+        <span>Easy</span>
+      </div>
+      <div class="fact">
+        <span class="label">Prep</span>
+        <span>2 minutes</span>
+      </div>
+        </div>
+        
+      <div class="pills">
+        <span class="pill">Contemporary Classic</span><span class="pill">Diet Dairy</span><span class="pill">Texture Creamy</span>
+      </div>
+      </div>
+      <div class="thumb-rail skeleton">
+        <img class="thumb" loading="lazy" decoding="async" src="https://drive.google.com/uc?export=view&amp;id=1DqnB-96Jw2-9MpHowkCaVu-HBbWcmaaz" data-alt="https://drive.google.com/thumbnail?id=1DqnB-96Jw2-9MpHowkCaVu-HBbWcmaaz&amp;sz=w1200" alt="Fruit Flip-Flop">
+      </div>
+    </a>
+    <a class="card fade-in" href="/fruit-shake" data-image-url="https://drive.google.com/uc?export=view&amp;id=14U6YwT69XKerDzUuoUW-KWVCsYuLUCzR" data-image-thumb="https://drive.google.com/thumbnail?id=14U6YwT69XKerDzUuoUW-KWVCsYuLUCzR&amp;sz=w1200" data-router-link="" role="article" aria-label="Recipe: Fruit Shake">
+      <div class="card-body">
+        <h3 class="title">Fruit Shake</h3>
+        <div class="facts">
+          
+      <div class="fact">
+        <span class="label">Date</span>
+        <span>Sep 29, 2025</span>
+      </div>
+      <div class="fact">
+        <span class="label">Difficulty</span>
+        <span>Easy</span>
+      </div>
+      <div class="fact">
+        <span class="label">Prep</span>
+        <span>1 minute</span>
+      </div>
+        </div>
+        
+      <div class="pills">
+        <span class="pill">Contemporary Classic</span><span class="pill">Fruity</span><span class="pill">Texture Creamy</span>
+      </div>
+      </div>
+      <div class="thumb-rail skeleton">
+        <img class="thumb" loading="lazy" decoding="async" src="https://drive.google.com/uc?export=view&amp;id=14U6YwT69XKerDzUuoUW-KWVCsYuLUCzR" data-alt="https://drive.google.com/thumbnail?id=14U6YwT69XKerDzUuoUW-KWVCsYuLUCzR&amp;sz=w1200" alt="Fruit Shake">
+      </div>
+    </a>
+    </section>
+  </div>
     </div>
   </main>
 
@@ -1815,15 +2226,15 @@
           <div class="cover-social">
             <a href="https://instagram.com/elixiary.ai" target="_blank" rel="noopener noreferrer" class="cover-social-link" aria-label="Follow us on Instagram">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <rect x="2" y="2" width="20" height="20" rx="5" ry="5" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" stroke="currentColor" stroke-width="1.5"/>
-                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5" stroke="currentColor" stroke-width="1.5"></rect>
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" stroke="currentColor" stroke-width="1.5"></path>
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></line>
               </svg>
               <span>Instagram</span>
             </a>
             <a href="https://tiktok.com/@elixiary.ai" target="_blank" rel="noopener noreferrer" class="cover-social-link" aria-label="Follow us on TikTok">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
               </svg>
               <span>TikTok</span>
             </a>
@@ -1852,5 +2263,6 @@
 
 
 
-</body>
-</html>
+
+
+</body></html>
