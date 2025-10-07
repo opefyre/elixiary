@@ -1361,8 +1361,6 @@
   };
 
   const FilterManager = {
-    _scrollableResizeHandler: null,
-    _scrollableResizeListenerAttached: false,
     reset() {
       AppState.filterSets = AppState.filterSets || {};
       AppState.filterSignatures = AppState.filterSignatures || {};
@@ -1456,8 +1454,6 @@
 
       this.setupSearchHandlers();
       AppState.chipsBuilt = true;
-      this.refreshAllScrollableStates();
-      this.ensureScrollableResizeListener();
       this.renderActiveFilters();
     },
 
@@ -1504,6 +1500,13 @@
         sanitizedItems.push({ value: chipValue, label: chipLabel });
       });
 
+      const isScrollable = sanitizedItems.length > (effectiveConfig.scrollThreshold ?? 8);
+      if (container.dataset && typeof container.dataset === 'object') {
+        container.dataset.scrollable = isScrollable ? 'true' : 'false';
+      } else if (typeof container.setAttribute === 'function') {
+        container.setAttribute('data-scrollable', isScrollable ? 'true' : 'false');
+      }
+
       const ariaFn = typeof effectiveConfig.ariaLabel === 'function'
         ? effectiveConfig.ariaLabel
         : (label) => `Filter by ${key}: ${label}`;
@@ -1536,50 +1539,6 @@
       });
 
       container.innerHTML = chips.join('');
-      this.measureChipScrollState(container);
-    },
-
-    measureChipScrollState(container) {
-      if (!container) return;
-
-      const applyMeasurement = () => {
-        const el = container;
-        if (!el) return;
-        const scrollable = Math.ceil(el.scrollHeight || 0) > Math.ceil(el.clientHeight || 0);
-        if (el.dataset && typeof el.dataset === 'object') {
-          el.dataset.scrollable = scrollable ? 'true' : 'false';
-        } else if (typeof el.setAttribute === 'function') {
-          el.setAttribute('data-scrollable', scrollable ? 'true' : 'false');
-        }
-      };
-
-      if (typeof requestAnimationFrame === 'function') {
-        requestAnimationFrame(applyMeasurement);
-      } else {
-        applyMeasurement();
-      }
-    },
-
-    refreshAllScrollableStates() {
-      for (const [key, config] of Object.entries(FILTER_GROUP_DEFS)) {
-        const selector = (config && config.selector) || `#${key}`;
-        const container = Utils.$(selector);
-        if (container) {
-          this.measureChipScrollState(container);
-        }
-      }
-    },
-
-    ensureScrollableResizeListener() {
-      if (this._scrollableResizeListenerAttached || typeof window === 'undefined') return;
-
-      const handler = Utils.debounce(() => {
-        this.refreshAllScrollableStates();
-      }, CONFIG.DEBOUNCE_MS);
-
-      window.addEventListener('resize', handler);
-      this._scrollableResizeHandler = handler;
-      this._scrollableResizeListenerAttached = true;
     },
 
     normalizeValue(value, key, configOverride) {
