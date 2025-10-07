@@ -81,6 +81,32 @@ function getPlaceholderImage(recipe) {
   return `data:image/svg+xml;base64,${encodedSvg}`;
 }
 
+function setMetaContent($, selector, value) {
+  if (typeof value !== 'string') return;
+  const trimmed = value.trim();
+  if (!trimmed) return;
+  const element = $(selector).first();
+  if (!element.length) return;
+  element.attr('content', trimmed);
+}
+
+function applySocialMeta($, { title, description, image } = {}) {
+  if (typeof title === 'string' && title.trim()) {
+    setMetaContent($, 'meta[property="og:title"]', title);
+    setMetaContent($, 'meta[name="twitter:title"]', title);
+  }
+
+  if (typeof description === 'string' && description.trim()) {
+    setMetaContent($, 'meta[property="og:description"]', description);
+    setMetaContent($, 'meta[name="twitter:description"]', description);
+  }
+
+  if (typeof image === 'string' && image.trim()) {
+    setMetaContent($, 'meta[property="og:image"]', image);
+    setMetaContent($, 'meta[name="twitter:image"]', image);
+  }
+}
+
 function createCard(recipe) {
   const name = recipe.name || 'Untitled';
   const slug = recipe.slug || '';
@@ -264,24 +290,24 @@ async function main() {
   const description = buildMetaDescription(recipes);
   if (description) {
     $('meta[name="description"]').attr('content', description);
-    $('meta[property="og:description"]').attr('content', description);
-    const twitterDesc = $('meta[name="twitter:description"], meta[property="twitter:description"]').first();
-    if (twitterDesc.length) {
-      twitterDesc.attr('content', description);
-    }
   }
 
+  const pageTitle = $('title').first().text().trim();
+
+  let socialImage = '';
   const firstImage = recipes.find((recipe) => recipe.image_url || recipe.image_thumb);
   if (firstImage) {
     const imageUrl = firstImage.image_url || firstImage.image_thumb;
     if (imageUrl) {
-      $('meta[property="og:image"]').attr('content', imageUrl);
-      const twitterImage = $('meta[name="twitter:image"], meta[property="twitter:image"]').first();
-      if (twitterImage.length) {
-        twitterImage.attr('content', imageUrl);
-      }
+      socialImage = imageUrl;
     }
   }
+
+  applySocialMeta($, {
+    title: pageTitle,
+    description: description || undefined,
+    image: socialImage || undefined
+  });
 
   await updateStructuredData($, recipes);
 

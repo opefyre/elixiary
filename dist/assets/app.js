@@ -50,6 +50,22 @@
     return (meta && meta.content) || 'Discover and explore an extensive collection of cocktail recipes with detailed ingredients, instructions, and beautiful photography. Find your perfect drink.';
   })();
 
+  const DEFAULT_SOCIAL_META = (() => {
+    const getContent = (selector) => {
+      const el = document.querySelector(selector);
+      return (el && el.getAttribute('content')) || '';
+    };
+
+    return {
+      ogTitle: getContent('meta[property="og:title"]'),
+      ogDescription: getContent('meta[property="og:description"]'),
+      ogImage: getContent('meta[property="og:image"]'),
+      twitterTitle: getContent('meta[name="twitter:title"]'),
+      twitterDescription: getContent('meta[name="twitter:description"]'),
+      twitterImage: getContent('meta[name="twitter:image"]')
+    };
+  })();
+
   const DEFAULT_PAGE_URLS = (() => {
     const canonicalEl = document.querySelector('link[rel="canonical"]');
     const ogEl = document.querySelector('meta[property="og:url"]');
@@ -120,15 +136,109 @@
       const fullTitle = title ? `${title} · Elixiary` : 'Elixiary - Discover Amazing Cocktail Recipes';
       document.title = fullTitle;
 
-      // Update meta description for detail pages or reset to site-wide message
+      let description = DEFAULT_META_DESCRIPTION;
+      if (title && title !== 'Elixiary') {
+        description = `Learn how to make ${title} with detailed ingredients and instructions. Discover more cocktail recipes at Elixiary.`;
+      }
+
       const metaDesc = Utils.$('meta[name="description"]');
       if (metaDesc) {
-        if (title && title !== 'Elixiary') {
-          metaDesc.content = `Learn how to make ${title} with detailed ingredients and instructions. Discover more cocktail recipes at Elixiary.`;
-        } else {
-          metaDesc.content = DEFAULT_META_DESCRIPTION;
-        }
+        metaDesc.setAttribute('content', description);
       }
+
+      return { fullTitle, description };
+    },
+
+    updateSocialMeta: ({ title, description, image } = {}) => {
+      const resolvedOgTitle = (typeof title === 'string' && title.trim()) || DEFAULT_SOCIAL_META.ogTitle || document.title;
+      const resolvedTwitterTitle = (typeof title === 'string' && title.trim())
+        || DEFAULT_SOCIAL_META.twitterTitle
+        || resolvedOgTitle;
+
+      const resolvedDescription = (typeof description === 'string' && description.trim())
+        || DEFAULT_SOCIAL_META.ogDescription
+        || DEFAULT_META_DESCRIPTION;
+      const resolvedTwitterDescription = (typeof description === 'string' && description.trim())
+        || DEFAULT_SOCIAL_META.twitterDescription
+        || resolvedDescription;
+
+      const resolvedImage = (typeof image === 'string' && image.trim()) || DEFAULT_SOCIAL_META.ogImage;
+      const resolvedTwitterImage = (typeof image === 'string' && image.trim())
+        || DEFAULT_SOCIAL_META.twitterImage
+        || resolvedImage;
+
+      const setContent = (selector, value) => {
+        const el = Utils.$(selector);
+        if (el && typeof value === 'string') {
+          el.setAttribute('content', value);
+        }
+      };
+
+      setContent('meta[property="og:title"]', resolvedOgTitle);
+      setContent('meta[name="twitter:title"]', resolvedTwitterTitle);
+      setContent('meta[property="og:description"]', resolvedDescription);
+      setContent('meta[name="twitter:description"]', resolvedTwitterDescription);
+      setContent('meta[property="og:image"]', resolvedImage);
+      setContent('meta[name="twitter:image"]', resolvedTwitterImage);
+    },
+
+    restoreSocialMeta: () => {
+      Utils.updateSocialMeta();
+    },
+
+    buildRecipeSocialDescription(recipe, fallbackDescription) {
+      if (!recipe) return fallbackDescription || DEFAULT_META_DESCRIPTION;
+
+      if (typeof fallbackDescription === 'string' && fallbackDescription.trim()) {
+        return fallbackDescription.trim();
+      }
+
+      const instructions = String(recipe.instructions || '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (instructions) {
+        return instructions.length > 200 ? `${instructions.slice(0, 197)}…` : instructions;
+      }
+
+      const details = [];
+      const labelize = (value) => {
+        if (typeof Utils.labelize === 'function') {
+          return Utils.labelize(value);
+        }
+        return String(value || '');
+      };
+
+      if (recipe.category) {
+        details.push(labelize(recipe.category));
+      }
+      if (recipe.difficulty) {
+        details.push(`Difficulty: ${recipe.difficulty}`);
+      }
+      if (recipe.prep_time) {
+        details.push(`Prep: ${recipe.prep_time}`);
+      }
+
+      const detailSuffix = details.length ? ` (${details.join(' • ')})` : '';
+      const baseName = recipe.name || 'this cocktail';
+      return `Learn how to make ${baseName}${detailSuffix} with Elixiary's curated cocktail recipes.`;
+    },
+
+    updateRecipeSocialMeta(recipe, { description } = {}) {
+      if (!recipe) {
+        Utils.restoreSocialMeta();
+        return;
+      }
+
+      const recipeTitle = recipe.name ? `${recipe.name} · Elixiary` : null;
+      const socialDescription = Utils.buildRecipeSocialDescription(recipe, description);
+      const socialImage = (recipe.image_url || recipe.image_thumb || '').trim();
+
+      Utils.updateSocialMeta({
+        title: recipeTitle,
+        description: socialDescription,
+        image: socialImage
+      });
     },
 
     updateShareUrls: (path = location.pathname) => {
@@ -2076,16 +2186,18 @@
       
       if (!response.ok || !response.post) {
         Utils.setTitle();
+        Utils.restoreSocialMeta();
         Utils.updateShareUrls();
         ErrorHandler.showError('Recipe not found.', false);
         return null;
       }
 
       const recipe = response.post;
-      Utils.setTitle(recipe.name || 'Recipe');
+      const { description: pageDescription } = Utils.setTitle(recipe.name || 'Recipe');
       Utils.updateShareUrls(slug);
 
       Utils.applyRecipeSchema(recipe);
+      Utils.updateRecipeSocialMeta(recipe, { description: pageDescription });
 
       const escHTML = s => Utils.esc(String(s||'')).replace(/\n/g,'<br>');
       const ingredientsList = (recipe.ingredients || []).map(ing => 
@@ -2247,6 +2359,7 @@
         }
         Utils.setTitle();
         Utils.updateShareUrls();
+        Utils.restoreSocialMeta();
         return Renderer.renderList(true);
       } else {
         AppState.requestId = 0;
