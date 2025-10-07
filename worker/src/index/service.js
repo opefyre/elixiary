@@ -169,13 +169,32 @@ export function createIndexService({ listCache = createListCache(), scheduleBack
       categories.push(categoryValue);
     }
 
+    const moods = [];
+    const seenMoods = new Set();
+    for (const idxVal of filteredIndexes) {
+      const row = idx.rows[idxVal];
+      if (!row || !Array.isArray(row.mood_labels)) continue;
+
+      for (const moodValue of row.mood_labels) {
+        const trimmed = typeof moodValue === 'string' ? moodValue.trim() : String(moodValue || '').trim();
+        if (!trimmed) continue;
+
+        const normalizedMood = normalizeMoodKey(trimmed);
+        if (!normalizedMood || seenMoods.has(normalizedMood)) continue;
+
+        seenMoods.add(normalizedMood);
+        moods.push(trimmed);
+      }
+    }
+
     const result = {
       ok: true,
       etag: idx.etag,
       total, page, page_size: size,
       has_more: end < total,
       posts,
-      categories
+      categories,
+      moods
     };
 
     listCache.set(cacheKey, result, listCacheTtlMs);
@@ -268,6 +287,14 @@ function normalizeCategoryKey(value) {
   if (!normalized) return '';
   return normalized
     .replace(/^(cat|glass|style|strength|flavor|energy|occ)_/, '')
+    .replace(/[\s/-]+/g, '_')
+    .replace(/[^a-z0-9_]/g, '');
+}
+
+function normalizeMoodKey(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return '';
+  return normalized
     .replace(/[\s/-]+/g, '_')
     .replace(/[^a-z0-9_]/g, '');
 }

@@ -123,4 +123,5 @@ test('handleList omits placeholder categories from responses', async (t) => {
   assert.equal(fetchCalls.length, 1);
   assert.deepEqual(response.categories, ['Tiki', 'Classics']);
   assert.ok(!response.categories.includes('unknown_other'));
+  assert.deepEqual(response.moods, ['happy', 'bright']);
 });
