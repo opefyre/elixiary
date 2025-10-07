@@ -3,6 +3,11 @@ import { createIndexBuilder } from './indexBuilder.js';
 import { getGoogleAccessToken } from '../google/oauth.js';
 import { scheduleBackground as defaultScheduleBackground } from '../utils.js';
 
+const CATEGORY_PLACEHOLDER_MAP = new Map([
+  ['unknown_other', null],
+  ['unknownother', null]
+]);
+
 export function createIndexService({ listCache = createListCache(), scheduleBackground = defaultScheduleBackground } = {}) {
   const builder = createIndexBuilder({ fetchSheetValues });
   const { buildIndexFromSheet, fetchRowFull, filterIndex, serializeRow, hasPrecomputedMaps } = builder;
@@ -142,10 +147,26 @@ export function createIndexService({ listCache = createListCache(), scheduleBack
     for (const idxVal of filteredIndexes) {
       const row = idx.rows[idxVal];
       const categoryValue = row && row.category;
-      if (categoryValue && !seenCategories.has(categoryValue)) {
-        seenCategories.add(categoryValue);
-        categories.push(categoryValue);
+      if (!categoryValue) continue;
+
+      const normalized = normalizeCategoryKey(categoryValue);
+      if (!normalized) continue;
+
+      if (CATEGORY_PLACEHOLDER_MAP.has(normalized)) {
+        const replacement = CATEGORY_PLACEHOLDER_MAP.get(normalized);
+        if (typeof replacement === 'string' && replacement) {
+          const replacementKey = normalizeCategoryKey(replacement);
+          if (replacementKey && !seenCategories.has(replacementKey)) {
+            seenCategories.add(replacementKey);
+            categories.push(replacement);
+          }
+        }
+        continue;
       }
+
+      if (seenCategories.has(normalized)) continue;
+      seenCategories.add(normalized);
+      categories.push(categoryValue);
     }
 
     const result = {
@@ -240,4 +261,13 @@ function clamp(n, lo, hi) {
 
 function canon(s) {
   return String(s || '').replace(/\uFEFF/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+function normalizeCategoryKey(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return '';
+  return normalized
+    .replace(/^(cat|glass|style|strength|flavor|energy|occ)_/, '')
+    .replace(/[\s/-]+/g, '_')
+    .replace(/[^a-z0-9_]/g, '');
 }

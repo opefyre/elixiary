@@ -1242,10 +1242,34 @@
       const container = Utils.$(selector);
       if (!container) return;
 
+      const placeholderCategories = {
+        unknown_other: { drop: true, label: 'Other' },
+        unknownother: { drop: true, label: 'Other' }
+      };
+
+      const seen = new Set();
+      const sanitizedItems = [];
+
+      (items || []).forEach(rawValue => {
+        const value = String(rawValue ?? '').trim();
+        if (!value) return;
+        const normalized = this.normalizeCategoryKey(value);
+        if (!normalized || seen.has(normalized)) return;
+
+        const rule = placeholderCategories[normalized];
+        if (rule && rule.drop) return;
+
+        seen.add(normalized);
+
+        const chipValue = rule && typeof rule.value === 'string' ? rule.value : value;
+        const chipLabel = rule && rule.label ? rule.label : Utils.labelize(chipValue);
+        sanitizedItems.push({ value: chipValue, label: chipLabel });
+      });
+
       const chips = [
-        `<button class="chip ${AppState.filter[key] === null ? 'is-active' : ''}" 
-                 data-k="${key}" 
-                 data-v="" 
+        `<button class="chip ${AppState.filter[key] === null ? 'is-active' : ''}"
+                 data-k="${key}"
+                 data-v=""
                  type="button"
                  role="button"
                  aria-pressed="${AppState.filter[key] === null ? 'true' : 'false'}">
@@ -1253,21 +1277,30 @@
          </button>`
       ];
 
-      items.forEach(value => {
+      sanitizedItems.forEach(({ value, label }) => {
         chips.push(`
-          <button class="chip ${AppState.filter[key] === value ? 'is-active' : ''}" 
-                   data-k="${key}" 
-                   data-v="${Utils.esc(value)}" 
+          <button class="chip ${AppState.filter[key] === value ? 'is-active' : ''}"
+                   data-k="${key}"
+                   data-v="${Utils.esc(value)}"
                    type="button"
                    role="button"
                    aria-pressed="${AppState.filter[key] === value ? 'true' : 'false'}"
-                   aria-label="Filter by ${key}: ${Utils.esc(Utils.labelize(value))}">
-            <span>${Utils.esc(Utils.labelize(value))}</span>
+                   aria-label="Filter by ${key}: ${Utils.esc(label)}">
+            <span>${Utils.esc(label)}</span>
           </button>
         `);
       });
 
       container.innerHTML = chips.join('');
+    },
+
+    normalizeCategoryKey(value) {
+      const normalized = String(value || '').trim().toLowerCase();
+      if (!normalized) return '';
+      return normalized
+        .replace(/^(cat|glass|style|strength|flavor|energy|occ)_/, '')
+        .replace(/[\s/-]+/g, '_')
+        .replace(/[^a-z0-9_]/g, '');
     },
 
     updateChipStates() {
