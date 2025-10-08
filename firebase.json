@@ -6,6 +6,7 @@
       { "source": "/privacy", "destination": "/privacy.html" },
       { "source": "/terms",   "destination": "/terms.html" },
       { "source": "/contact", "destination": "/contact.html" },
+      { "source": "/:slug",   "destination": "/:slug/index.html" },
       { "source": "/**",      "destination": "/index.html" }
     ],
     "headers": [
