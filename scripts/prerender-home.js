@@ -44,6 +44,66 @@ function labelize(value) {
     .replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
+function toIsoDuration(value) {
+  if (typeof value !== 'string') return '';
+
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+
+  if (/^P(T|\d)/i.test(trimmed)) {
+    return trimmed.replace(/^pt/, 'PT');
+  }
+
+  const cleaned = trimmed
+    .replace(/[~≈]/g, ' ')
+    .replace(/\band\b/gi, ' ')
+    .replace(/[,/-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const regex = /(\d+(?:\.\d+)?)(?:\s*)(hours?|hrs?|hr|h|minutes?|mins?|min|m|seconds?|secs?|sec|s)/gi;
+  const totals = { H: 0, M: 0, S: 0 };
+  let hasMatch = false;
+
+  let match;
+  while ((match = regex.exec(cleaned))) {
+    const quantity = parseFloat(match[1]);
+    if (!Number.isFinite(quantity)) continue;
+
+    const unit = match[2].toLowerCase();
+    if (unit.startsWith('h')) {
+      totals.H += quantity;
+      hasMatch = true;
+    } else if (unit.startsWith('m')) {
+      totals.M += quantity;
+      hasMatch = true;
+    } else if (unit.startsWith('s')) {
+      totals.S += quantity;
+      hasMatch = true;
+    }
+  }
+
+  if (!hasMatch) {
+    return trimmed;
+  }
+
+  const format = (num) => {
+    if (!num) return '';
+    return Number.isInteger(num) ? String(num) : String(num).replace(/\.0+$/, '');
+  };
+
+  let iso = 'PT';
+  const hours = format(totals.H);
+  const minutes = format(totals.M);
+  const seconds = format(totals.S);
+
+  if (hours) iso += `${hours}H`;
+  if (minutes) iso += `${minutes}M`;
+  if (seconds) iso += `${seconds}S`;
+
+  return iso.length > 2 ? iso : trimmed;
+}
+
 function getPlaceholderColor(category) {
   const colors = {
     cat_shot_shooter: '#DC2626',
@@ -490,7 +550,7 @@ function buildRecipeStructuredData(baseData, recipe) {
     description,
     image: recipe.image_url || recipe.image_thumb,
     datePublished: recipe.date,
-    prepTime: recipe.prep_time,
+    prepTime: toIsoDuration(recipe.prep_time),
     recipeCategory: recipe.category ? labelize(recipe.category) : undefined,
     recipeCuisine: 'Cocktail',
     recipeIngredient: ingredients,
@@ -501,8 +561,8 @@ function buildRecipeStructuredData(baseData, recipe) {
       name: 'Elixiary'
     },
     keywords: dedupedKeywords,
-    totalTime: recipe.total_time,
-    cookTime: recipe.cook_time,
+    totalTime: toIsoDuration(recipe.total_time),
+    cookTime: toIsoDuration(recipe.cook_time),
     nutrition: recipe.alcohol_content
       ? {
           '@type': 'NutritionInformation',

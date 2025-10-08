@@ -100,14 +100,75 @@
       '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' 
     }[c])),
     
-    fmtDate: s => { 
-      if(!s) return ''; 
-      const d=new Date(s); 
+    fmtDate: s => {
+      if(!s) return '';
+      const d=new Date(s);
       return isNaN(d)? s : d.toLocaleDateString(undefined,{
         year:'numeric',month:'short',day:'numeric'
-      }); 
+      });
     },
-    
+
+    toIsoDuration: (value) => {
+      if (typeof value !== 'string') return '';
+
+      const trimmed = value.trim();
+      if (!trimmed) return '';
+
+      if (/^P(T|\d)/i.test(trimmed)) {
+        return trimmed.replace(/^pt/, 'PT');
+      }
+
+      const cleaned = trimmed
+        .replace(/[~≈]/g, ' ')
+        .replace(/\band\b/gi, ' ')
+        .replace(/[,/-]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      const matches = cleaned.matchAll(/(\d+(?:\.\d+)?)(?:\s*)(hours?|hrs?|hr|h|minutes?|mins?|min|m|seconds?|secs?|sec|s)/gi);
+
+      let hasMatch = false;
+      const totals = { H: 0, M: 0, S: 0 };
+
+      for (const match of matches) {
+        const quantity = parseFloat(match[1]);
+        if (!Number.isFinite(quantity)) continue;
+
+        const unit = match[2].toLowerCase();
+        if (unit.startsWith('h')) {
+          totals.H += quantity;
+          hasMatch = true;
+        } else if (unit.startsWith('m')) {
+          totals.M += quantity;
+          hasMatch = true;
+        } else if (unit.startsWith('s')) {
+          totals.S += quantity;
+          hasMatch = true;
+        }
+      }
+
+      if (!hasMatch) {
+        return trimmed;
+      }
+
+      const format = (num) => {
+        if (!num) return '';
+        const normalized = Number.isInteger(num) ? String(num) : String(num).replace(/\.0+$/, '');
+        return normalized;
+      };
+
+      let iso = 'PT';
+      const hours = format(totals.H);
+      const minutes = format(totals.M);
+      const seconds = format(totals.S);
+
+      if (hours) iso += `${hours}H`;
+      if (minutes) iso += `${minutes}M`;
+      if (seconds) iso += `${seconds}S`;
+
+      return iso.length > 2 ? iso : trimmed;
+    },
+
     labelize: s => String(s||'')
       .replace(/^(cat|glass|style|strength|flavor|energy|occ)_/,'')
       .replace(/_/g,' ')
@@ -359,7 +420,11 @@
     },
 
     generateRecipeJsonLd: (recipe) => {
-      return {
+      const prepTime = Utils.toIsoDuration(recipe.prep_time);
+      const cookTime = Utils.toIsoDuration(recipe.cook_time);
+      const totalTime = Utils.toIsoDuration(recipe.total_time);
+
+      const jsonLd = {
         "@context": "https://schema.org",
         "@type": "Recipe",
         "name": recipe.name,
@@ -371,8 +436,7 @@
         },
         "recipeCategory": recipe.category,
         "recipeCuisine": "Cocktail",
-        "prepTime": recipe.prep_time,
-        "recipeIngredient": (recipe.ingredients || []).map(ing => 
+        "recipeIngredient": (recipe.ingredients || []).map(ing =>
           `${ing.measure || ''} ${ing.name || ''}`.trim()
         ),
         "recipeInstructions": recipe.instructions,
@@ -381,6 +445,12 @@
           "alcoholContent": recipe.alcohol_content || "Varies"
         }
       };
+
+      if (prepTime) jsonLd.prepTime = prepTime;
+      if (cookTime) jsonLd.cookTime = cookTime;
+      if (totalTime) jsonLd.totalTime = totalTime;
+
+      return jsonLd;
     }
   };
 
