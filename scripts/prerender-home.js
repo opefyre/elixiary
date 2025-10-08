@@ -170,8 +170,8 @@ function applySocialMeta($, { title, description, image } = {}) {
 
 function createCard(recipe) {
   const name = recipe.name || 'Untitled';
-  const slug = encodeURIComponent(recipe.slug || '');
-  const href = `/${slug}`;
+  const slug = recipe.slug || '';
+  const href = `/${encodeURIComponent(slug)}`;
   const date = formatDate(recipe.date);
   const difficulty = recipe.difficulty || '';
   const prepTime = recipe.prep_time || '';
@@ -202,32 +202,21 @@ function createCard(recipe) {
       </div>`);
   }
 
-  const tagLinks = tags
-    .map((tag) => {
-      const value = String(tag ?? '').trim();
-      if (!value) return '';
-      const filterHref = `/?tag=${encodeURIComponent(value)}`;
-      return `<a class="pill" data-router-link href="${escapeHtml(filterHref)}">${escapeHtml(labelize(value))}</a>`;
-    })
-    .filter(Boolean)
-    .join('');
-
-  const pills = tagLinks
+  const pills = tags.length
     ? `
       <div class="pills">
-        ${tagLinks}
+        ${tags.map((tag) => `<span class="pill">${escapeHtml(labelize(tag))}</span>`).join('')}
       </div>`
     : '';
 
   return `
-    <article class="card fade-in"
-             data-router-link
-             data-href="${escapeHtml(href)}"
-             data-image-url="${escapeHtml(recipe.image_url || '')}"
-             data-image-thumb="${escapeHtml(recipe.image_thumb || '')}"
-             role="link"
-             tabindex="0"
-             aria-label="Recipe: ${escapeHtml(name)}">
+    <a class="card fade-in"
+       href="${href}"
+       data-image-url="${escapeHtml(recipe.image_url || '')}"
+       data-image-thumb="${escapeHtml(recipe.image_thumb || '')}"
+       data-router-link
+       role="article"
+       aria-label="Recipe: ${escapeHtml(name)}">
       <div class="card-body">
         <h3 class="title">${escapeHtml(name)}</h3>
         <div class="facts">
@@ -243,7 +232,7 @@ function createCard(recipe) {
              data-alt="${escapeHtml(thumbImage)}"
              alt="${escapeHtml(name)}">
       </div>
-    </article>`;
+    </a>`;
 }
 
 function buildGrid(recipes) {
@@ -422,25 +411,13 @@ function buildRecipeDetailMarkup(recipe) {
 
   const tags = Array.isArray(recipe.tags) && recipe.tags.length
     ? recipe.tags
-        .map((tag) => {
-          const value = String(tag ?? '').trim();
-          if (!value) return '';
-          const href = `/?tag=${encodeURIComponent(value)}`;
-          return `<a class="pill" data-router-link href="${escapeHtml(href)}">${escapeHtml(labelize(value))}</a>`;
-        })
-        .filter(Boolean)
+        .map((tag) => `<span class="pill">${escapeHtml(labelize(tag))}</span>`)
         .join('')
     : '';
 
   const moods = Array.isArray(recipe.mood_labels) && recipe.mood_labels.length
     ? recipe.mood_labels
-        .map((mood) => {
-          const value = String(mood ?? '').trim();
-          if (!value) return '';
-          const href = `/?mood=${encodeURIComponent(value)}`;
-          return `<a class="pill" data-router-link href="${escapeHtml(href)}">${escapeHtml(labelize(value))}</a>`;
-        })
-        .filter(Boolean)
+        .map((mood) => `<span class="pill">${escapeHtml(labelize(mood))}</span>`)
         .join('')
     : '';
 
