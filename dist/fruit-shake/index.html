@@ -625,6 +625,42 @@
     main{padding:28px 0; min-height:calc(100vh - 200px)}
     .stack{display:flex; flex-direction:column; gap:22px}
 
+    .hero{
+      background:var(--bg);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      padding:32px;
+      box-shadow:0 18px 40px rgba(15,23,42,.05);
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+    }
+
+    .hero-content{display:flex; flex-direction:column; gap:12px}
+
+    .hero h1{
+      margin:0;
+      font-size:32px;
+      line-height:1.1;
+      letter-spacing:-.02em;
+      color:var(--text);
+      font-weight:700;
+    }
+
+    .hero p{
+      margin:0;
+      font-size:18px;
+      line-height:1.6;
+      color:var(--muted);
+      max-width:60ch;
+    }
+
+    @media (max-width:768px){
+      .hero{padding:24px}
+      .hero h1{font-size:26px}
+      .hero p{font-size:16px}
+    }
+
     /* Filters - Responsive Collapsible */
     .filters {
       background: var(--bg);
@@ -1784,6 +1820,12 @@
   <!-- Main -->
   <main id="main-content" role="main">
     <div class="container stack">
+      <section class="hero" aria-labelledby="hero-heading">
+        <div class="hero-content">
+          <h1 id="hero-heading">Discover Amazing Cocktail Recipes</h1>
+          <p>Browse a curated catalogue of handcrafted cocktails, filter by mood or ingredients, and uncover new favorites for every occasion.</p>
+        </div>
+      </section>
       <!-- Filters -->
       <section id="filters" class="filters" role="group" aria-labelledby="filters-heading" data-expanded="true">
         <div class="filters-header">
