@@ -2235,6 +2235,16 @@
         filtersEl.style.margin = '0';
         filtersEl.style.padding = '0';
       }
+
+      const heroSection = Utils.$('.hero');
+      if (heroSection) {
+        heroSection.style.display = 'none';
+        heroSection.style.visibility = 'hidden';
+        heroSection.style.height = '0';
+        heroSection.style.overflow = 'hidden';
+        heroSection.style.margin = '0';
+        heroSection.style.padding = '0';
+      }
       
     view.innerHTML = `
       <div class="detail skeleton-card">
@@ -2419,10 +2429,26 @@
       const slug = Utils.normalizeSlug(location.pathname);
       const filtersEl = Utils.$('#filters');
       const searchWrap = Utils.$('.nav-controls .search-wrap');
+      const heroSection = Utils.$('.hero');
 
       if (!slug) {
         // Home page - show filters
-        if (filtersEl) filtersEl.style.display = 'block';
+        if (filtersEl) {
+          filtersEl.style.display = '';
+          filtersEl.style.visibility = '';
+          filtersEl.style.height = '';
+          filtersEl.style.overflow = '';
+          filtersEl.style.margin = '';
+          filtersEl.style.padding = '';
+        }
+        if (heroSection) {
+          heroSection.style.display = '';
+          heroSection.style.visibility = '';
+          heroSection.style.height = '';
+          heroSection.style.overflow = '';
+          heroSection.style.margin = '';
+          heroSection.style.padding = '';
+        }
         if (searchWrap) searchWrap.style.display = '';
         if (FilterPanel && typeof FilterPanel.onListView === 'function') {
           FilterPanel.onListView();
@@ -2441,6 +2467,14 @@
           filtersEl.style.overflow = 'hidden';
           filtersEl.style.margin = '0';
           filtersEl.style.padding = '0';
+        }
+        if (heroSection) {
+          heroSection.style.display = 'none';
+          heroSection.style.visibility = 'hidden';
+          heroSection.style.height = '0';
+          heroSection.style.overflow = 'hidden';
+          heroSection.style.margin = '0';
+          heroSection.style.padding = '0';
         }
         if (FilterPanel && typeof FilterPanel.onDetailView === 'function') {
           FilterPanel.onDetailView();
