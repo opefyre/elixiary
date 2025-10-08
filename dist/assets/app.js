@@ -423,15 +423,30 @@
       const prepTime = Utils.toIsoDuration(recipe.prep_time);
       const cookTime = Utils.toIsoDuration(recipe.cook_time);
       const totalTime = Utils.toIsoDuration(recipe.total_time);
+      const slug = Utils.normalizeSlug(recipe.slug || DEFAULT_PAGE_URLS.basePath);
 
-      const jsonLd = {
-        "@context": "https://schema.org",
+      let canonicalUrl = DEFAULT_PAGE_URLS.canonical;
+      if (slug) {
+        try {
+          canonicalUrl = new URL(slug, DEFAULT_PAGE_URLS.baseUrl).toString();
+        } catch (_) {
+          canonicalUrl = `${location.origin.replace(/\/$/, '')}/${slug}`;
+        }
+      }
+
+      const siteOrigin = (DEFAULT_PAGE_URLS.baseUrl && DEFAULT_PAGE_URLS.baseUrl.origin) || location.origin;
+      const homeUrl = `${siteOrigin.replace(/\/$/, '')}/`;
+
+      const recipeNode = {
         "@type": "Recipe",
+        "@id": canonicalUrl,
+        "url": canonicalUrl,
         "name": recipe.name,
         "description": recipe.instructions || "A delicious cocktail recipe",
         "image": recipe.image_url || recipe.image_thumb,
         "author": {
           "@type": "Organization",
+          "@id": `${homeUrl}#org`,
           "name": "Elixiary"
         },
         "recipeCategory": recipe.category,
@@ -446,11 +461,33 @@
         }
       };
 
-      if (prepTime) jsonLd.prepTime = prepTime;
-      if (cookTime) jsonLd.cookTime = cookTime;
-      if (totalTime) jsonLd.totalTime = totalTime;
+      if (prepTime) recipeNode.prepTime = prepTime;
+      if (cookTime) recipeNode.cookTime = cookTime;
+      if (totalTime) recipeNode.totalTime = totalTime;
 
-      return jsonLd;
+      const breadcrumbNode = {
+        "@type": "BreadcrumbList",
+        "@id": `${canonicalUrl}#breadcrumb`,
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": homeUrl
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": recipe.name || "Recipe",
+            "item": canonicalUrl
+          }
+        ]
+      };
+
+      return {
+        "@context": "https://schema.org",
+        "@graph": [recipeNode, breadcrumbNode]
+      };
     }
   };
 
@@ -2307,6 +2344,17 @@
       view.innerHTML = `
       <div class="detail fade-in">
         <article>
+            <nav class="breadcrumbs" aria-label="Breadcrumb" style="margin-bottom:16px;">
+              <ol style="list-style:none;display:flex;flex-wrap:wrap;align-items:center;padding:0;margin:0;font-size:13px;color:var(--muted);gap:8px;">
+                <li style="display:flex;align-items:center;gap:8px;">
+                  <a href="/" data-router-link style="color:var(--muted);text-decoration:none;font-weight:500;">Home</a>
+                </li>
+                <li style="display:flex;align-items:center;gap:8px;color:var(--muted);" aria-current="page">
+                  <span aria-hidden="true" style="opacity:0.5;">/</span>
+                  <span>${Utils.esc(recipe.name || 'Untitled')}</span>
+                </li>
+              </ol>
+            </nav>
             <h1>${Utils.esc(recipe.name || 'Untitled')}</h1>
           <div class="info">
               ${Utils.esc(Utils.fmtDate(recipe.date) || '')}
