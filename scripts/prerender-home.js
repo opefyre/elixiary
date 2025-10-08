@@ -698,6 +698,10 @@ function buildRecipePage(baseHtml, baseStructuredData, recipe, canonicalUrl) {
   if (!view.length) {
     throw new Error('Failed to locate #view container when building recipe page');
   }
+  // Remove list-only UI elements so the recipe heading is the first H1
+  $('.hero').remove();
+  $('#filters').remove();
+
   view.attr('data-prerendered', 'true');
   view.html(buildRecipeDetailMarkup(recipe));
 
