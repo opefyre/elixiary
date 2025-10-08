@@ -12,8 +12,39 @@
   };
 
   // ===== STATE MANAGEMENT =====
+  function getInitialFilterState() {
+    const defaults = { category: null, mood: null, tag: null, q: '' };
+
+    if (typeof location === 'undefined' || typeof URLSearchParams === 'undefined') {
+      return { ...defaults };
+    }
+
+    try {
+      const params = new URLSearchParams(location.search || '');
+      const parsed = { ...defaults };
+
+      const q = params.get('q');
+      if (q && q.trim()) {
+        parsed.q = q.trim().toLowerCase();
+      }
+
+      ['category', 'mood', 'tag'].forEach((key) => {
+        const raw = params.get(key);
+        if (raw === null) return;
+        const trimmed = raw.trim();
+        if (trimmed) {
+          parsed[key] = trimmed;
+        }
+      });
+
+      return parsed;
+    } catch (_) {
+      return { ...defaults };
+    }
+  }
+
   const AppState = {
-    filter: { category: null, mood: null, q: '' },
+    filter: getInitialFilterState(),
     etag: null,
     page: 1,
     hasMore: true,
@@ -28,11 +59,13 @@
     themePreference: 'auto',
     filterSets: {
       category: new Set(),
-      mood: new Set()
+      mood: new Set(),
+      tag: new Set()
     },
     filterSignatures: {
       category: '',
-      mood: ''
+      mood: '',
+      tag: ''
     },
     searchHandlersBound: false,
     globalHandlersBound: false,
@@ -496,7 +529,8 @@
     keyBase: () => 'mixology:index:' + JSON.stringify({
       q: AppState.filter.q,
       category: AppState.filter.category,
-      mood: AppState.filter.mood
+      mood: AppState.filter.mood,
+      tag: AppState.filter.tag
     }),
     
     get: (key) => {
@@ -533,6 +567,73 @@
       } catch(e) {
         console.warn('Cache clear failed:', e);
       }
+    }
+  };
+
+  const QueryState = {
+    parse(search = '') {
+      const defaults = { category: null, mood: null, tag: null, q: '' };
+
+      if (typeof URLSearchParams === 'undefined') {
+        return { ...defaults };
+      }
+
+      try {
+        const params = new URLSearchParams(search || '');
+        const result = { ...defaults };
+
+        const q = params.get('q');
+        if (q && q.trim()) {
+          result.q = q.trim().toLowerCase();
+        }
+
+        ['category', 'mood', 'tag'].forEach((key) => {
+          const raw = params.get(key);
+          if (raw === null) return;
+          const trimmed = raw.trim();
+          if (trimmed) {
+            result[key] = trimmed;
+          }
+        });
+
+        return result;
+      } catch (_) {
+        return { ...defaults };
+      }
+    },
+
+    applyToState(search) {
+      const parsed = this.parse(typeof search === 'string' ? search : (typeof location !== 'undefined' ? location.search : ''));
+      AppState.filter.q = parsed.q;
+      AppState.filter.category = parsed.category;
+      AppState.filter.mood = parsed.mood;
+      AppState.filter.tag = parsed.tag;
+      return parsed;
+    },
+
+    buildSearch(filter = AppState.filter) {
+      const params = new URLSearchParams();
+      if (filter.q) params.set('q', filter.q);
+      if (filter.category) params.set('category', filter.category);
+      if (filter.mood) params.set('mood', filter.mood);
+      if (filter.tag) params.set('tag', filter.tag);
+      return params.toString();
+    },
+
+    syncUrl(filter = AppState.filter) {
+      if (typeof window === 'undefined' || typeof history === 'undefined') {
+        return;
+      }
+
+      const slug = Utils.normalizeSlug(location.pathname);
+      if (slug) return;
+
+      const search = this.buildSearch(filter);
+      const formatted = search ? `?${search}` : '';
+      if (formatted === location.search) return;
+
+      const newUrl = formatted ? `/${formatted}` : '/';
+      history.replaceState({}, '', newUrl);
     }
   };
 
@@ -575,6 +676,7 @@
       if (AppState.filter.q) url.searchParams.set('q', AppState.filter.q);
       if (AppState.filter.category) url.searchParams.set('category', AppState.filter.category);
       if (AppState.filter.mood) url.searchParams.set('mood', AppState.filter.mood);
+      if (AppState.filter.tag) url.searchParams.set('tag', AppState.filter.tag);
 
       if (ifEtag) {
         url.searchParams.set('if_etag', ifEtag);
@@ -1272,11 +1374,11 @@
 
     extractRecipeData(card) {
       const titleEl = card.querySelector('.title');
-      const href = card.getAttribute('href');
+      const hrefAttr = card.getAttribute('href') || card.dataset.href;
 
-      if (!titleEl || !href) return null;
+      if (!titleEl || !hrefAttr) return null;
 
-      const slug = Utils.normalizeSlug(href);
+      const slug = Utils.normalizeSlug(hrefAttr);
       const name = titleEl.textContent.trim();
       const imageUrl = card.dataset.imageUrl || null;
       const imageThumb = card.dataset.imageThumb || null;
@@ -1364,14 +1466,20 @@
     },
 
     createCard(recipe) {
+      const slug = encodeURIComponent(recipe.slug || '');
+      const href = `/${slug}`;
+      const imageSrc = recipe.image_url || recipe.image_thumb || ImageManager.getPlaceholderImage(recipe);
+      const fallbackImage = recipe.image_thumb || ImageManager.getPlaceholderImage(recipe);
+
       return `
-        <a class="card fade-in"
-           href="/${encodeURIComponent(recipe.slug)}"
-           data-image-url="${Utils.esc(recipe.image_url || '')}"
-           data-image-thumb="${Utils.esc(recipe.image_thumb || '')}"
-           data-router-link
-           role="article"
-           aria-label="Recipe: ${Utils.esc(recipe.name || 'Untitled')}">
+        <article class="card fade-in"
+                 data-router-link
+                 data-href="${Utils.esc(href)}"
+                 data-image-url="${Utils.esc(recipe.image_url || '')}"
+                 data-image-thumb="${Utils.esc(recipe.image_thumb || '')}"
+                 role="link"
+                 tabindex="0"
+                 aria-label="Recipe: ${Utils.esc(recipe.name || 'Untitled')}">
           <div class="card-body">
             <h3 class="title">${Utils.esc(recipe.name || 'Untitled')}</h3>
             <div class="facts">
@@ -1389,20 +1497,23 @@
               </div>`:''}
             </div>
             ${recipe.tags?.length ? `<div class="pills">
-              ${recipe.tags.slice(0,3).map(t=>
-                `<span class="pill">${Utils.esc(Utils.labelize(t))}</span>`
-              ).join('')}
+              ${recipe.tags.slice(0,3).map(t=>{
+                const raw = String(t ?? '').trim();
+                if (!raw) return '';
+                const filterHref = `/?tag=${encodeURIComponent(raw)}`;
+                return `<a class="pill" data-router-link href="${Utils.esc(filterHref)}">${Utils.esc(Utils.labelize(raw))}</a>`;
+              }).filter(Boolean).join('')}
             </div>` : ''}
           </div>
           <div class="thumb-rail skeleton">
-            <img class="thumb" 
-                 loading="lazy" 
+            <img class="thumb"
+                 loading="lazy"
                  decoding="async"
-                 src="${Utils.esc(recipe.image_url || recipe.image_thumb || ImageManager.getPlaceholderImage(recipe))}"
-                 data-alt="${Utils.esc(recipe.image_thumb || ImageManager.getPlaceholderImage(recipe))}"
+                 src="${Utils.esc(imageSrc)}"
+                 data-alt="${Utils.esc(fallbackImage)}"
                  alt="${Utils.esc(recipe.name || '')}">
           </div>
-        </a>`;
+        </article>`;
     }
   };
 
@@ -1438,23 +1549,40 @@
       },
       ariaLabel: (label) => `Filter by mood: ${label}`,
       announceLabel: 'Mood'
+    },
+    tag: {
+      selector: '#tag',
+      normalize: (value) => String(value || '').trim().toLowerCase()
+        .replace(/[\s/-]+/g, '_')
+        .replace(/[^a-z0-9_]/g, ''),
+      extractFromPost: (post) => {
+        if (post && Array.isArray(post.tags)) {
+          return post.tags.filter(Boolean);
+        }
+        return [];
+      },
+      ariaLabel: (label) => `Filter by tag: ${label}`,
+      announceLabel: 'Tag'
     }
   };
 
   function extractFilterPayload(payload) {
     const clone = (arr) => Array.isArray(arr) ? arr.slice() : [];
     if (!payload || typeof payload !== 'object') {
-      return { category: [], mood: [] };
+      return { category: [], mood: [], tag: [] };
     }
-    if (payload.filters && typeof payload.filters === 'object') {
-      return {
-        category: clone(payload.filters.category),
-        mood: clone(payload.filters.mood)
-      };
-    }
+
+    const filters = (payload.filters && typeof payload.filters === 'object') ? payload.filters : payload;
+
+    const resolve = (key, fallbackKey) => {
+      const value = filters[key] ?? filters[fallbackKey];
+      return clone(value);
+    };
+
     return {
-      category: clone(payload.categories),
-      mood: clone(payload.moods)
+      category: resolve('category', 'categories'),
+      mood: resolve('mood', 'moods'),
+      tag: resolve('tag', 'tags')
     };
   }
 
@@ -1832,6 +1960,8 @@
       Utils.announce(`${announceLabel} filter set to ${spokenValue}`);
       this.renderActiveFilters();
 
+      QueryState.syncUrl();
+
       Renderer.renderList(true);
     },
 
@@ -1916,6 +2046,7 @@
             CacheManager.clearSearch();
             this.updateAllChipStates();
             this.renderActiveFilters();
+            QueryState.syncUrl();
             Utils.announce('All filters cleared');
             Renderer.renderList(true);
             return;
@@ -1930,9 +2061,23 @@
           this.renderActiveFilters();
           const announceLabel = FILTER_GROUP_DEFS[key].announceLabel || key;
           Utils.announce(`${announceLabel} filter cleared`);
+          QueryState.syncUrl();
           Renderer.renderList(true);
         });
       });
+    },
+
+    syncSearchInput() {
+      const searchInput = Utils.$('#q');
+      const clearBtn = Utils.$('#clear');
+
+      if (searchInput) {
+        searchInput.value = AppState.filter.q || '';
+      }
+
+      if (clearBtn) {
+        clearBtn.classList.toggle('show', !!AppState.filter.q);
+      }
     },
 
     setupSearchHandlers() {
@@ -1941,11 +2086,14 @@
       const searchInput = Utils.$('#q');
       const clearBtn = Utils.$('#clear');
 
+      this.syncSearchInput();
+
       if (searchInput) {
         searchInput.addEventListener('input', Utils.debounce(() => {
           AppState.filter.q = searchInput.value.trim().toLowerCase();
           clearBtn?.classList.toggle('show', !!AppState.filter.q);
           CacheManager.clearSearch();
+          QueryState.syncUrl();
           Renderer.renderList(true);
 
           if (AppState.filter.q) {
@@ -1961,6 +2109,7 @@
           clearBtn.classList.remove('show');
           CacheManager.clearSearch();
           Utils.announce('Search cleared');
+          QueryState.syncUrl();
           Renderer.renderList(true);
         });
       }
@@ -2038,7 +2187,8 @@
           has_more: data.has_more,
           filters: pageFilters,
           categories: pageFilters.category,
-          moods: pageFilters.mood
+          moods: pageFilters.mood,
+          tags: pageFilters.tag
         });
 
         Renderer.appendCards(data.posts, pageFilters);
@@ -2072,6 +2222,12 @@
   const Renderer = {
     async renderList(reset) {
       const view = Utils.$('#view');
+
+      QueryState.applyToState();
+      if (FilterManager && typeof FilterManager.syncSearchInput === 'function') {
+        FilterManager.syncSearchInput();
+      }
+      QueryState.syncUrl();
 
       const requestToken = ++AppState.requestId;
 
@@ -2160,7 +2316,8 @@
           has_more: data.has_more,
           filters: dataFilters,
           categories: dataFilters.category,
-          moods: dataFilters.mood
+          moods: dataFilters.mood,
+          tags: dataFilters.tag
         });
 
         this.paintCards(data.posts, data.total, data.has_more, true, dataFilters);
@@ -2187,7 +2344,8 @@
             has_more: refresh.has_more,
             filters: refreshFilters,
             categories: refreshFilters.category,
-            moods: refreshFilters.mood
+            moods: refreshFilters.mood,
+            tags: refreshFilters.tag
           });
 
           this.paintCards(refresh.posts, refresh.total, refresh.has_more, true, refreshFilters);
@@ -2320,12 +2478,18 @@
       const ingredientsList = (recipe.ingredients || []).map(ing => 
         `<li>${Utils.esc(ing.measure||'')} ${Utils.esc(ing.name||'')}</li>`
       ).join('');
-      const tags = (recipe.tags || []).map(tag => 
-        `<span class="pill">${Utils.esc(Utils.labelize(tag))}</span>`
-      ).join('');
-      const moods = (recipe.mood_labels || []).map(mood => 
-        `<span class="pill">${Utils.esc(Utils.labelize(mood))}</span>`
-      ).join('');
+      const tags = (recipe.tags || []).map(tag => {
+        const raw = String(tag ?? '').trim();
+        if (!raw) return '';
+        const href = `/?tag=${encodeURIComponent(raw)}`;
+        return `<a class="pill" data-router-link href="${Utils.esc(href)}">${Utils.esc(Utils.labelize(raw))}</a>`;
+      }).filter(Boolean).join('');
+      const moods = (recipe.mood_labels || []).map(mood => {
+        const raw = String(mood ?? '').trim();
+        if (!raw) return '';
+        const href = `/?mood=${encodeURIComponent(raw)}`;
+        return `<a class="pill" data-router-link href="${Utils.esc(href)}">${Utils.esc(Utils.labelize(raw))}</a>`;
+      }).filter(Boolean).join('');
 
       const rawImageUrl = recipe.image_url || recipe.image_thumb;
       const detailImageUrl = rawImageUrl ? ImageManager.convertToDirectImageUrl(rawImageUrl, ImageManager.sizes?.detail) : null;
@@ -2439,14 +2603,28 @@
           if (event.defaultPrevented) return;
           if (event.button !== 0) return;
           if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-          const anchor = event.target.closest('a[data-router-link]');
-          if (!anchor) return;
-          const href = anchor.getAttribute('href');
-          if (!href) return;
-          const url = new URL(href, location.href);
+          const linkEl = event.target.closest('[data-router-link]');
+          if (!linkEl) return;
+          const rawHref = linkEl.getAttribute('href') || linkEl.getAttribute('data-href') || linkEl.dataset?.href;
+          if (!rawHref) return;
+          const url = new URL(rawHref, location.href);
           if (url.origin !== location.origin) return;
 
           event.preventDefault();
+          this.go(url.pathname + url.search + url.hash);
+        });
+
+        document.addEventListener('keydown', (event) => {
+          if (event.defaultPrevented) return;
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          const linkEl = event.target.closest('[data-router-link][data-href]');
+          if (!linkEl) return;
+          const rawHref = linkEl.getAttribute('data-href') || linkEl.dataset?.href;
+          if (!rawHref) return;
+
+          event.preventDefault();
+          const url = new URL(rawHref, location.href);
+          if (url.origin !== location.origin) return;
           this.go(url.pathname + url.search + url.hash);
         });
         this._linkHandlerBound = true;
@@ -2700,6 +2878,7 @@
       ErrorHandler,
       FilterPanel,
       FilterManager,
+      QueryState,
       Renderer,
       Router
     };
