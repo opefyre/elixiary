@@ -447,6 +447,17 @@ function buildRecipeDetailMarkup(recipe) {
   return `
       <div class="detail fade-in">
         <article>
+          <nav class="breadcrumbs" aria-label="Breadcrumb" style="margin-bottom:16px;">
+            <ol style="list-style:none;display:flex;flex-wrap:wrap;align-items:center;padding:0;margin:0;font-size:13px;color:var(--muted);gap:8px;">
+              <li style="display:flex;align-items:center;gap:8px;">
+                <a href="/" data-router-link style="color:var(--muted);text-decoration:none;font-weight:500;">Home</a>
+              </li>
+              <li style="display:flex;align-items:center;gap:8px;color:var(--muted);" aria-current="page">
+                <span aria-hidden="true" style="opacity:0.5;">/</span>
+                <span>${escapeHtml(recipe.name || 'Untitled')}</span>
+              </li>
+            </ol>
+          </nav>
           <h1>${escapeHtml(recipe.name || 'Untitled')}</h1>
           <div class="info">${infoLine}</div>
           <div class="row">
@@ -572,6 +583,27 @@ function buildRecipeStructuredData(baseData, recipe) {
   });
 
   graph.push(recipeNode);
+
+  const breadcrumbNode = sanitizeRecipeNode({
+    '@type': 'BreadcrumbList',
+    '@id': `${canonicalUrl}#breadcrumb`,
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Home',
+        item: `${SITE_ORIGIN}/`
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: recipe.name || 'Recipe',
+        item: canonicalUrl
+      }
+    ]
+  });
+
+  graph.push(breadcrumbNode);
 
   return {
     '@context': baseData?.['@context'] || 'https://schema.org',
