@@ -1335,6 +1335,87 @@
     .kvs{display:grid; gap:8px}
     .kv{display:flex; gap:6px; align-items:center; color:var(--muted); font-size:14px}
     .kv b{font-weight:600; color:var(--text)}
+    /* Detail share layout */
+    .detail-meta{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      flex-wrap:wrap;
+      margin-bottom:16px;
+    }
+    .detail-meta .info{
+      margin-bottom:0;
+      flex:1 1 auto;
+    }
+    .share-btn{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      padding:12px 20px;
+      border-radius:999px;
+      border:1px solid transparent;
+      background:var(--accent);
+      color:var(--bg);
+      font-size:15px;
+      font-weight:600;
+      letter-spacing:.01em;
+      cursor:pointer;
+      transition:transform var(--fade), box-shadow var(--fade), background-color var(--fade), color var(--fade), border-color var(--fade);
+      flex:0 0 auto;
+      box-shadow:0 12px 26px rgba(17,24,39,.18);
+    }
+    .share-btn .share-icon{
+      width:18px;
+      height:18px;
+      fill:currentColor;
+    }
+    .share-btn .share-label{line-height:1;}
+    .share-btn:hover:not(:disabled){
+      transform:translateY(-1px);
+      box-shadow:0 16px 32px rgba(17,24,39,.22);
+      background:var(--text);
+    }
+    .share-btn:focus,
+    .share-btn:focus-visible{
+      outline:none;
+      box-shadow:var(--ring);
+    }
+    .share-btn:disabled{
+      opacity:0.7;
+      cursor:not-allowed;
+      transform:none;
+      box-shadow:none;
+    }
+    .share-btn.is-success{
+      border-color:rgba(5,150,105,.5);
+      background:rgba(5,150,105,.14);
+      color:var(--success);
+      box-shadow:none;
+    }
+    .share-btn.is-error{
+      border-color:rgba(220,38,38,.5);
+      background:rgba(220,38,38,.14);
+      color:var(--error);
+      box-shadow:none;
+    }
+    .share-btn.is-success .share-icon,
+    .share-btn.is-error .share-icon{
+      fill:currentColor;
+    }
+    @media(max-width:640px){
+      .detail-meta{flex-direction:column; align-items:stretch; gap:14px;}
+      .detail-meta .info{width:100%;}
+      .share-btn{
+        width:100%;
+        justify-content:center;
+        box-shadow:0 16px 32px rgba(17,24,39,.22);
+      }
+      .share-btn:hover:not(:disabled){
+        transform:none;
+      }
+    }
+
     .back{ 
       display:inline-flex; 
       align-items:center; 
@@ -1854,7 +1935,15 @@
             </ol>
           </nav>
           <h1>Fruit Flip-Flop</h1>
-          <div class="info">Sep 29, 2025 · Easy · 2 minutes</div>
+          <div class="detail-meta">
+            <div class="info">Sep 29, 2025 · Easy · 2 minutes</div>
+            <button type="button" class="share-btn" data-action="share" aria-label="Share Fruit Flip-Flop with friends">
+              <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M13 4a1 1 0 1 0-2 0v1.586L9.707 5.293a1 1 0 1 0-1.414 1.414L11 9.414V15a1 1 0 1 0 2 0V9.414l2.707-2.707a1 1 0 0 0-1.414-1.414L13 5.586V4Zm-6 9a2 2 0 0 1 2-2h1v2H9v4h6v-4h-1v-2h1a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-4Z"></path>
+              </svg>
+              <span class="share-label">Share</span>
+            </button>
+          </div>
           <div class="row">
             <div class="col">
               <h3 style="margin:0 0 6px;font-size:16px">Ingredients</h3>
