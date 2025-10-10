@@ -39,8 +39,11 @@
     schema: {
       homeScript: null,
       homeMarkup: '',
+      homeItemList: null,
       recipeScript: null
     },
+    currentPosts: [],
+    total: 0,
     filtersExpanded: true
   };
 
@@ -173,12 +176,151 @@
       .replace(/^(cat|glass|style|strength|flavor|energy|occ)_/,'')
       .replace(/_/g,' ')
       .replace(/\b\w/g,m=>m.toUpperCase()),
-    
+
+    safeJsonParse: (text) => {
+      if (typeof text !== 'string') return null;
+      const trimmed = text.trim();
+      if (!trimmed) return null;
+      try {
+        return JSON.parse(trimmed);
+      } catch (_) {
+        return null;
+      }
+    },
+
+    toAbsoluteUrl: (value) => {
+      const slug = Utils.normalizeSlug(value);
+      if (!slug) {
+        if (typeof value === 'string' && /^https?:\/\//i.test(value)) {
+          return value;
+        }
+        return DEFAULT_PAGE_URLS.canonical;
+      }
+
+      try {
+        const base = DEFAULT_PAGE_URLS.baseUrl || new URL(location.origin);
+        return new URL(slug, base).toString();
+      } catch (_) {
+        const origin = (DEFAULT_PAGE_URLS.baseUrl && DEFAULT_PAGE_URLS.baseUrl.origin) || location.origin;
+        return `${String(origin).replace(/\/$/, '')}/${slug}`;
+      }
+    },
+
+    extractHomeItemListTemplate: (markup) => {
+      const parsed = Utils.safeJsonParse(markup);
+      if (!parsed || typeof parsed !== 'object') return null;
+      const graph = Array.isArray(parsed['@graph']) ? parsed['@graph'] : [];
+      const node = graph.find(entry => entry && entry['@type'] === 'ItemList');
+      if (!node) return null;
+      try {
+        return JSON.parse(JSON.stringify(node));
+      } catch (_) {
+        return null;
+      }
+    },
+
+    buildItemListSchema: (posts = [], totalCount) => {
+      if (!Array.isArray(posts) || !posts.length) return null;
+
+      const limit = Math.min(posts.length, 12);
+      const slice = posts.filter(Boolean).slice(0, limit);
+      if (!slice.length) return null;
+
+      const base = AppState.schema.homeItemList
+        ? JSON.parse(JSON.stringify(AppState.schema.homeItemList))
+        : {
+            "@type": "ItemList",
+            "@id": `${DEFAULT_PAGE_URLS.canonical.replace(/\/$/, '')}#top-recipes`,
+            "name": "Top Cocktail Recipes",
+            "itemListOrder": "http://schema.org/ItemListOrderAscending"
+          };
+
+      const elements = slice.map((post, index) => {
+        if (!post) return null;
+        const name = post.name || `Recipe ${index + 1}`;
+        const slugSource = post.slug || '';
+        const url = Utils.toAbsoluteUrl(slugSource);
+        const image = post.image_url || post.image_thumb || '';
+        const element = {
+          "@type": "ListItem",
+          "position": index + 1,
+          "url": url,
+          "name": name
+        };
+        if (image) element.image = image;
+        return element;
+      }).filter(Boolean);
+
+      if (!elements.length) return null;
+
+      const parsedTotalCount = Number(totalCount);
+      const normalizedTotal = Number.isFinite(parsedTotalCount) && parsedTotalCount > 0
+        ? Math.max(Math.round(parsedTotalCount), elements.length)
+        : Math.max(posts.length, elements.length);
+
+      base.itemListElement = elements;
+      base.numberOfItems = normalizedTotal;
+
+      return base;
+    },
+
+    updateHomeItemListSchema: (posts, totalCount) => {
+      Utils.ensureSchemaCache();
+
+      const script = AppState.schema.homeScript;
+      if (!script) return;
+
+      if (!Array.isArray(posts) || !posts.length) {
+        if (typeof AppState.schema.homeMarkup === 'string') {
+          script.textContent = AppState.schema.homeMarkup;
+        }
+        return;
+      }
+
+      const currentJson = Utils.safeJsonParse(script.textContent) || Utils.safeJsonParse(AppState.schema.homeMarkup);
+      if (!currentJson || typeof currentJson !== 'object') return;
+
+      const workingJson = JSON.parse(JSON.stringify(currentJson));
+      if (!Array.isArray(workingJson['@graph'])) {
+        workingJson['@graph'] = [];
+      }
+
+      const itemList = Utils.buildItemListSchema(posts, totalCount);
+      if (!itemList) {
+        if (typeof AppState.schema.homeMarkup === 'string') {
+          script.textContent = AppState.schema.homeMarkup;
+        }
+        return;
+      }
+
+      const idx = workingJson['@graph'].findIndex(node => node && node['@type'] === 'ItemList');
+      if (idx >= 0) {
+        workingJson['@graph'][idx] = {
+          ...workingJson['@graph'][idx],
+          ...itemList,
+          itemListElement: itemList.itemListElement,
+          numberOfItems: itemList.numberOfItems
+        };
+      } else {
+        workingJson['@graph'].push(itemList);
+      }
+
+      script.textContent = JSON.stringify(workingJson, null, 2);
+    },
+
+    clearHomeItemListSchema: () => {
+      Utils.ensureSchemaCache();
+      const script = AppState.schema.homeScript;
+      if (script && typeof AppState.schema.homeMarkup === 'string') {
+        script.textContent = AppState.schema.homeMarkup;
+      }
+    },
+
     debounce: (fn, ms = CONFIG.DEBOUNCE_MS) => {
-      let t; 
-      return (...a) => { 
-        clearTimeout(t); 
-        t = setTimeout(() => fn(...a), ms); 
+      let t;
+      return (...a) => {
+        clearTimeout(t);
+        t = setTimeout(() => fn(...a), ms);
       }; 
     },
     
@@ -375,7 +517,10 @@
         if (script) {
           AppState.schema.homeScript = script;
           AppState.schema.homeMarkup = script.textContent || '';
+          AppState.schema.homeItemList = Utils.extractHomeItemListTemplate(AppState.schema.homeMarkup);
         }
+      } else if (!AppState.schema.homeItemList && AppState.schema.homeMarkup) {
+        AppState.schema.homeItemList = Utils.extractHomeItemListTemplate(AppState.schema.homeMarkup);
       }
     },
 
@@ -2012,6 +2157,11 @@
       const cached = CacheManager.get(pageKey);
 
       if (cached) {
+        const cachedTotal = Number(cached.total);
+        if (Number.isFinite(cachedTotal)) {
+          const existingTotal = Number.isFinite(AppState.total) ? AppState.total : 0;
+          AppState.total = Math.max(existingTotal, cachedTotal);
+        }
         const cachedFilters = extractFilterPayload(cached);
         Renderer.appendCards(cached.posts, cachedFilters);
         FilterManager.buildChips();
@@ -2019,15 +2169,21 @@
         AppState.hasMore = cached.has_more;
         this.updatePager();
         AppState.loadingMore = false;
-      return;
-    }
+        return;
+      }
 
       const data = await APIClient.fetchList({ page: nextPage });
-      
+
       if (data && data.ok) {
         if (data.etag) {
           AppState.etag = data.etag;
           CacheManager.put('mixology:etag', { val: AppState.etag });
+        }
+
+        const responseTotal = Number(data.total);
+        if (Number.isFinite(responseTotal)) {
+          const existingTotal = Number.isFinite(AppState.total) ? AppState.total : 0;
+          AppState.total = Math.max(existingTotal, responseTotal);
         }
 
         const pageFilters = extractFilterPayload(data);
@@ -2087,11 +2243,13 @@
         filtersEl.style.margin = '';
         filtersEl.style.padding = '';
       }
-      
+
       if (reset) {
         AppState.page = 1;
         AppState.hasMore = true;
         AppState.loadingMore = false;
+        AppState.currentPosts = [];
+        AppState.total = 0;
         view.innerHTML = UIComponents.skeletonCards();
         AppState.etag = (CacheManager.get('mixology:etag') || {}).val || null;
         FilterManager.reset();
@@ -2209,16 +2367,24 @@
 
       if (!Array.isArray(posts)) {
         posts = [];
+      } else {
+        posts = posts.slice();
       }
+
+      const parsedTotal = Number(total);
+      const normalizedTotal = Number.isFinite(parsedTotal) ? parsedTotal : posts.length;
+      AppState.total = normalizedTotal;
+      AppState.currentPosts = posts.slice();
 
       FilterManager.mergeFilters(posts, filters);
 
-      if (countEl) countEl.textContent = String(total ?? posts.length);
+      if (countEl) countEl.textContent = String(normalizedTotal ?? posts.length);
 
       if (!posts.length) {
         ErrorHandler.showEmpty();
-      return;
-    }
+        Utils.updateHomeItemListSchema([], normalizedTotal);
+        return;
+      }
 
       const cards = posts.map(recipe => UIComponents.createCard(recipe)).join('');
 
@@ -2245,19 +2411,36 @@
       if (pager) pager.classList.toggle('hide', !AppState.hasMore);
 
       ImageManager.wireImages(AppState.gridEl);
+      Utils.updateHomeItemListSchema(AppState.currentPosts, AppState.total);
     },
 
     appendCards(newPosts, filters) {
+      if (!Array.isArray(newPosts)) {
+        newPosts = [];
+      } else {
+        newPosts = newPosts.slice();
+      }
+
       FilterManager.mergeFilters(newPosts, filters);
 
-      if (!Array.isArray(newPosts) || !newPosts.length) return;
+      if (!newPosts.length) {
+        Utils.updateHomeItemListSchema(AppState.currentPosts, AppState.total);
+        return;
+      }
+
+      AppState.currentPosts = [...(AppState.currentPosts || []), ...newPosts];
+      if (!Number.isFinite(AppState.total) || AppState.total < AppState.currentPosts.length) {
+        AppState.total = AppState.currentPosts.length;
+      }
 
       const cards = newPosts.map(recipe => UIComponents.createCard(recipe)).join('');
-      
+
       if (AppState.gridEl) {
         AppState.gridEl.insertAdjacentHTML('beforeend', cards);
         ImageManager.wireImages(AppState.gridEl);
       }
+
+      Utils.updateHomeItemListSchema(AppState.currentPosts, AppState.total);
     },
 
     async renderDetail(slug) {
@@ -2528,6 +2711,9 @@
           FilterPanel.onDetailView();
         }
         if (searchWrap) searchWrap.style.display = 'none';
+        AppState.currentPosts = [];
+        AppState.total = 0;
+        Utils.clearHomeItemListSchema();
         return Renderer.renderDetail(slug);
       }
     }
