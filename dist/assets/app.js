@@ -43,6 +43,7 @@
       recipeScript: null
     },
     currentPosts: [],
+    currentRecipe: null,
     total: 0,
     filtersExpanded: true
   };
@@ -635,6 +636,188 @@
       };
     }
   };
+
+  // ===== SHARE MANAGER =====
+  const ShareManager = (() => {
+    const LABEL_DEFAULT = 'Share';
+    const LABEL_SHARED = 'Shared!';
+    const LABEL_COPIED = 'Link copied!';
+    const LABEL_ERROR = 'Copy failed';
+    const RESET_DELAY = 2400;
+    let resetTimer = null;
+
+    const getButton = (button) => button || Utils.$('.share-btn');
+    const getLabelEl = (btn) => (btn ? btn.querySelector('.share-label') : null);
+
+    const ensureDefaultLabel = (btn) => {
+      if (!btn) return LABEL_DEFAULT;
+      if (!btn.dataset.defaultLabel) {
+        const labelEl = getLabelEl(btn);
+        const defaultLabel = (labelEl && labelEl.textContent.trim()) || LABEL_DEFAULT;
+        btn.dataset.defaultLabel = defaultLabel;
+      }
+      return btn.dataset.defaultLabel || LABEL_DEFAULT;
+    };
+
+    const setLabel = (btn, text) => {
+      const labelEl = getLabelEl(btn);
+      if (labelEl) {
+        labelEl.textContent = text;
+      }
+    };
+
+    const clearStates = (btn) => {
+      if (!btn) return;
+      btn.classList.remove('is-success', 'is-error');
+    };
+
+    const resetButton = (btn) => {
+      if (!btn) return;
+      const defaultLabel = ensureDefaultLabel(btn);
+      clearStates(btn);
+      btn.disabled = false;
+      setLabel(btn, defaultLabel);
+      delete btn.dataset.shareState;
+    };
+
+    const scheduleReset = (btn) => {
+      if (!btn) return;
+      clearTimeout(resetTimer);
+      resetTimer = setTimeout(() => resetButton(btn), RESET_DELAY);
+    };
+
+    const buildShareUrl = (recipe) => {
+      const slug = Utils.normalizeSlug(recipe?.slug || '');
+      if (slug) {
+        try {
+          return new URL(slug, DEFAULT_PAGE_URLS.baseUrl).toString();
+        } catch (_) {
+          return `${location.origin.replace(/\/$/, '')}/${slug}`;
+        }
+      }
+      return DEFAULT_PAGE_URLS.canonical;
+    };
+
+    const buildShareData = (recipe) => ({
+      title: recipe?.name ? `${recipe.name} · Elixiary` : 'Elixiary',
+      text: Utils.buildRecipeSocialDescription(recipe, recipe?.description),
+      url: buildShareUrl(recipe)
+    });
+
+    const copyToClipboard = async (text) => {
+      if (!text) throw new Error('Missing text to copy');
+
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.setAttribute('readonly', '');
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+
+      let succeeded = false;
+      try {
+        succeeded = document.execCommand('copy');
+      } finally {
+        document.body.removeChild(textarea);
+      }
+
+      if (!succeeded) {
+        throw new Error('Copy command was rejected');
+      }
+
+      return true;
+    };
+
+    return {
+      async shareCurrent(button) {
+        const recipe = AppState.currentRecipe;
+        if (!recipe) return false;
+
+        const btn = getButton(button);
+        ensureDefaultLabel(btn);
+        if (btn && btn.dataset.shareState === 'busy') {
+          return false;
+        }
+
+        if (btn) {
+          btn.dataset.shareState = 'busy';
+          btn.disabled = true;
+          clearStates(btn);
+          setLabel(btn, btn.dataset.defaultLabel || LABEL_DEFAULT);
+        }
+
+        clearTimeout(resetTimer);
+
+        const shareData = buildShareData(recipe);
+        let shareOutcome = false;
+        let aborted = false;
+
+        try {
+          if (navigator.share && typeof navigator.share === 'function') {
+            try {
+              await navigator.share(shareData);
+              shareOutcome = true;
+              if (btn) {
+                clearStates(btn);
+                setLabel(btn, LABEL_SHARED);
+              }
+              Utils.announce(`Sharing ${recipe.name || 'this recipe'}`);
+              scheduleReset(btn);
+              return true;
+            } catch (error) {
+              if (error && error.name === 'AbortError') {
+                aborted = true;
+              } else {
+                console.warn('Native share failed, falling back to copy:', error);
+              }
+            }
+          }
+
+          if (aborted) {
+            resetButton(btn);
+            return false;
+          }
+
+          try {
+            await copyToClipboard(shareData.url);
+            shareOutcome = true;
+            if (btn) {
+              btn.classList.add('is-success');
+              setLabel(btn, LABEL_COPIED);
+            }
+            Utils.announce('Share link copied to clipboard');
+          } catch (copyError) {
+            if (btn) {
+              btn.classList.add('is-error');
+              setLabel(btn, LABEL_ERROR);
+            }
+            Utils.announce('Unable to copy share link');
+            console.warn('Copy to clipboard failed:', copyError);
+          }
+
+          scheduleReset(btn);
+          return shareOutcome;
+        } finally {
+          if (btn) {
+            btn.disabled = false;
+            delete btn.dataset.shareState;
+          }
+        }
+      },
+
+      reset(button) {
+        const btn = getButton(button);
+        resetButton(btn);
+      }
+    };
+  })();
 
   // ===== CACHE MANAGEMENT =====
   const CacheManager = {
@@ -2245,6 +2428,8 @@
       }
 
       if (reset) {
+        AppState.currentRecipe = null;
+        ShareManager.reset();
         AppState.page = 1;
         AppState.hasMore = true;
         AppState.loadingMore = false;
@@ -2445,6 +2630,7 @@
 
     async renderDetail(slug) {
       const view = Utils.$('#view');
+      AppState.currentRecipe = null;
 
       const filtersEl = Utils.$('#filters');
       if (filtersEl) {
@@ -2483,16 +2669,19 @@
       `;
 
       const response = await APIClient.fetchPost(slug);
-      
+
       if (!response.ok || !response.post) {
         Utils.setTitle();
         Utils.restoreSocialMeta();
         Utils.updateShareUrls();
         ErrorHandler.showError('Recipe not found.', false);
+        AppState.currentRecipe = null;
+        ShareManager.reset();
         return null;
       }
 
       const recipe = response.post;
+      AppState.currentRecipe = recipe;
       const { description: pageDescription } = Utils.setTitle(recipe.name || 'Recipe');
       Utils.updateShareUrls(slug);
 
@@ -2539,10 +2728,18 @@
               </ol>
             </nav>
             <h1>${Utils.esc(recipe.name || 'Untitled')}</h1>
-          <div class="info">
-              ${Utils.esc(Utils.fmtDate(recipe.date) || '')}
-              ${recipe.difficulty ? ` · ${Utils.esc(recipe.difficulty)}` : ''}
-              ${recipe.prep_time ? ` · ${Utils.esc(recipe.prep_time)}` : ''}
+          <div class="detail-meta">
+            <div class="info">
+                ${Utils.esc(Utils.fmtDate(recipe.date) || '')}
+                ${recipe.difficulty ? ` · ${Utils.esc(recipe.difficulty)}` : ''}
+                ${recipe.prep_time ? ` · ${Utils.esc(recipe.prep_time)}` : ''}
+            </div>
+            <button type="button" class="share-btn" data-action="share" aria-label="Share ${Utils.esc(recipe.name || 'this recipe')} with friends">
+              <svg class="share-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M13 4a1 1 0 1 0-2 0v1.586L9.707 5.293a1 1 0 1 0-1.414 1.414L11 9.414V15a1 1 0 1 0 2 0V9.414l2.707-2.707a1 1 0 0 0-1.414-1.414L13 5.586V4Zm-6 9a2 2 0 0 1 2-2h1v2H9v4h6v-4h-1v-2h1a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2v-4Z"></path>
+              </svg>
+              <span class="share-label">Share</span>
+            </button>
           </div>
 
           <div class="row">
@@ -2584,6 +2781,7 @@
       `;
 
       const detailImg = view.querySelector('[data-validate-image]');
+      ShareManager.reset();
       if (detailImg) {
         const handleDetailLoad = () => {
           const rail = detailImg.closest('.detail-rail');
@@ -2737,6 +2935,14 @@
           event.preventDefault();
           InfiniteScroll.loadNextPage();
         }
+
+        const shareBtn = event.target.closest('[data-action="share"]');
+        if (shareBtn) {
+          event.preventDefault();
+          if (!AppState.currentRecipe) return;
+          if (shareBtn.disabled) return;
+          ShareManager.shareCurrent(shareBtn);
+        }
       });
 
       AppState.globalHandlersBound = true;
@@ -2887,7 +3093,8 @@
       FilterPanel,
       FilterManager,
       Renderer,
-      Router
+      Router,
+      ShareManager
     };
   }
 
