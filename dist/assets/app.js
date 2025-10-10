@@ -34,6 +34,10 @@
       category: '',
       mood: ''
     },
+    filterLabels: {
+      category: new Map(),
+      mood: new Map()
+    },
     searchHandlersBound: false,
     globalHandlersBound: false,
     schema: {
@@ -820,11 +824,18 @@
   })();
 
   // ===== CACHE MANAGEMENT =====
+  const normalizeCacheFilterValue = (value, { allowEmptyString = false } = {}) => {
+    if (value === null || value === undefined) return allowEmptyString ? '' : null;
+    const trimmed = String(value).trim();
+    if (!trimmed) return allowEmptyString ? '' : null;
+    return trimmed.toLowerCase();
+  };
+
   const CacheManager = {
     keyBase: () => 'mixology:index:' + JSON.stringify({
-      q: AppState.filter.q,
-      category: AppState.filter.category,
-      mood: AppState.filter.mood
+      q: normalizeCacheFilterValue(AppState.filter.q, { allowEmptyString: true }),
+      category: normalizeCacheFilterValue(AppState.filter.category),
+      mood: normalizeCacheFilterValue(AppState.filter.mood)
     }),
     
     get: (key) => {
@@ -1909,9 +1920,11 @@
     reset() {
       AppState.filterSets = AppState.filterSets || {};
       AppState.filterSignatures = AppState.filterSignatures || {};
+      AppState.filterLabels = AppState.filterLabels || {};
       for (const key of Object.keys(FILTER_GROUP_DEFS)) {
         AppState.filterSets[key] = new Set();
         AppState.filterSignatures[key] = '';
+        AppState.filterLabels[key] = new Map();
       }
       AppState.chipsBuilt = false;
     },
@@ -1924,6 +1937,16 @@
         AppState.filterSets[key] = new Set();
       }
       return AppState.filterSets[key];
+    },
+
+    ensureLabelMap(key) {
+      if (!AppState.filterLabels || typeof AppState.filterLabels !== 'object') {
+        AppState.filterLabels = {};
+      }
+      if (!(AppState.filterLabels[key] instanceof Map)) {
+        AppState.filterLabels[key] = new Map();
+      }
+      return AppState.filterLabels[key];
     },
 
     mergeFilters(posts, aggregates = {}) {
@@ -2027,12 +2050,14 @@
       const placeholders = effectiveConfig.placeholders || {};
       const seen = new Set();
       const sanitizedItems = [];
+      const labelMap = this.ensureLabelMap(key);
+      labelMap.clear();
 
       (items || []).forEach(rawValue => {
-        const value = String(rawValue ?? '').trim();
-        if (!value) return;
+        const sourceValue = String(rawValue ?? '').trim();
+        if (!sourceValue) return;
 
-        const normalized = this.normalizeValue(value, key, effectiveConfig);
+        const normalized = this.normalizeValue(sourceValue, key, effectiveConfig);
         if (!normalized || seen.has(normalized)) return;
 
         const rule = placeholders[normalized];
@@ -2040,9 +2065,18 @@
 
         seen.add(normalized);
 
-        const chipValue = rule && typeof rule.value === 'string' ? rule.value : value;
-        const chipLabel = rule && rule.label ? rule.label : Utils.labelize(chipValue);
-        sanitizedItems.push({ value: chipValue, label: chipLabel });
+        const baseValue = (rule && typeof rule.value === 'string')
+          ? rule.value
+          : sourceValue;
+        const raw = String(baseValue).trim().toLowerCase();
+        if (!raw) return;
+
+        const chipLabel = (rule && typeof rule.label === 'string')
+          ? rule.label
+          : Utils.labelize(sourceValue);
+
+        sanitizedItems.push({ value: raw, label: chipLabel });
+        labelMap.set(raw, chipLabel);
       });
 
       const isScrollable = sanitizedItems.length > (effectiveConfig.scrollThreshold ?? 8);
@@ -2156,7 +2190,12 @@
 
       const config = FILTER_GROUP_DEFS[key] || {};
       const announceLabel = config.announceLabel || key;
-      const spokenValue = val ? Utils.labelize(val) : 'All';
+      const labelMap = (AppState.filterLabels && AppState.filterLabels[key] instanceof Map)
+        ? AppState.filterLabels[key]
+        : null;
+      const spokenValue = val
+        ? ((labelMap && labelMap.get(val)) || Utils.labelize(val))
+        : 'All';
       Utils.announce(`${announceLabel} filter set to ${spokenValue}`);
       this.renderActiveFilters();
 
@@ -2176,10 +2215,13 @@
       for (const [key, config] of Object.entries(FILTER_GROUP_DEFS)) {
         const value = AppState.filter[key];
         if (!value) continue;
+        const labelMap = (AppState.filterLabels && AppState.filterLabels[key] instanceof Map)
+          ? AppState.filterLabels[key]
+          : null;
         active.push({
           key,
           value,
-          label: Utils.labelize(value),
+          label: (labelMap && labelMap.get(value)) || Utils.labelize(value),
           displayLabel: config.announceLabel || Utils.labelize(key)
         });
       }
