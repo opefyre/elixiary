@@ -12,8 +12,36 @@ if (proxyUrl) {
 const API_URL = 'https://api.elixiary.com/v1/list';
 const POST_API_URL = 'https://api.elixiary.com/v1/post';
 const OUTPUT_PATH = path.join(__dirname, '..', 'dist', 'index.html');
+const SITEMAP_OUTPUT_PATH = path.join(__dirname, '..', 'dist', 'sitemap.xml');
 const SITE_ORIGIN = 'https://www.elixiary.com';
 const USER_AGENT = 'ElixiaryBuildBot/1.0 (+https://www.elixiary.com)';
+
+const CORE_SITEMAP_PAGES = [
+  {
+    path: '/',
+    file: 'index.html',
+    changefreq: 'daily',
+    priority: '1.0'
+  },
+  {
+    path: '/privacy',
+    file: 'privacy.html',
+    changefreq: 'yearly',
+    priority: '0.3'
+  },
+  {
+    path: '/terms',
+    file: 'terms.html',
+    changefreq: 'yearly',
+    priority: '0.3'
+  },
+  {
+    path: '/contact',
+    file: 'contact.html',
+    changefreq: 'yearly',
+    priority: '0.3'
+  }
+];
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -35,6 +63,17 @@ function formatDate(value) {
     month: 'short',
     day: 'numeric'
   });
+}
+
+function toSitemapDate(value) {
+  if (!value) return '';
+
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toISOString().split('T')[0];
 }
 
 function labelize(value) {
@@ -104,6 +143,29 @@ function toIsoDuration(value) {
   return iso.length > 2 ? iso : trimmed;
 }
 
+function getRecipeLastModified(recipe) {
+  if (!recipe || typeof recipe !== 'object') return '';
+
+  const candidates = [
+    recipe.updated_at,
+    recipe.updatedAt,
+    recipe.modified_at,
+    recipe.modifiedAt,
+    recipe.date,
+    recipe.created_at,
+    recipe.createdAt
+  ];
+
+  for (const candidate of candidates) {
+    const formatted = toSitemapDate(candidate);
+    if (formatted) {
+      return formatted;
+    }
+  }
+
+  return '';
+}
+
 function getPlaceholderColor(category) {
   const colors = {
     cat_shot_shooter: '#DC2626',
@@ -140,6 +202,45 @@ function getPlaceholderImage(recipe) {
 
   const encodedSvg = Buffer.from(svg).toString('base64');
   return `data:image/svg+xml;base64,${encodedSvg}`;
+}
+
+function buildAbsoluteUrl(pathname) {
+  const trimmed = String(pathname ?? '').trim();
+  if (!trimmed || trimmed === '/') {
+    return `${SITE_ORIGIN}/`;
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `${SITE_ORIGIN}${trimmed.startsWith('/') ? trimmed : `/${trimmed}`}`;
+}
+
+async function getFileLastModified(relativePath) {
+  if (!relativePath) {
+    return '';
+  }
+
+  const target = path.join(__dirname, '..', 'dist', relativePath);
+
+  try {
+    const stats = await fs.stat(target);
+    return toSitemapDate(stats.mtime);
+  } catch (error) {
+    console.warn(`Unable to determine last modified time for ${relativePath}:`, error.message || error);
+    return toSitemapDate(new Date());
+  }
+}
+
+function getRecipeImageUrls(recipe) {
+  if (!recipe || typeof recipe !== 'object') return [];
+
+  const candidates = [recipe.image_url, recipe.image_thumb]
+    .map((url) => (typeof url === 'string' ? url.trim() : ''))
+    .filter(Boolean);
+
+  return Array.from(new Set(candidates));
 }
 
 function setMetaContent($, selector, value) {
@@ -348,6 +449,73 @@ async function fetchRecipeDetail(slug) {
   }
 
   return data.post;
+}
+
+async function buildSitemapDocument(recipes) {
+  const lines = [];
+  lines.push('<?xml version="1.0" encoding="UTF-8"?>');
+  lines.push('<urlset');
+  lines.push('  xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"');
+  lines.push('  xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">');
+  lines.push('');
+  lines.push('  <!-- Core pages -->');
+
+  for (const page of CORE_SITEMAP_PAGES) {
+    const loc = buildAbsoluteUrl(page.path);
+    const lastmod = await getFileLastModified(page.file);
+
+    lines.push('  <url>');
+    lines.push(`    <loc>${escapeHtml(loc)}</loc>`);
+    if (lastmod) {
+      lines.push(`    <lastmod>${lastmod}</lastmod>`);
+    }
+    if (page.changefreq) {
+      lines.push(`    <changefreq>${page.changefreq}</changefreq>`);
+    }
+    if (page.priority) {
+      lines.push(`    <priority>${page.priority}</priority>`);
+    }
+    lines.push('  </url>');
+  }
+
+  lines.push('');
+  lines.push('  <!-- Recipes -->');
+
+  for (const recipe of Array.isArray(recipes) ? recipes : []) {
+    const slug = String(recipe?.slug || '').trim();
+    if (!slug) continue;
+
+    const loc = buildAbsoluteUrl(`/${encodeURIComponent(slug)}`);
+    const lastmod = getRecipeLastModified(recipe) || toSitemapDate(new Date());
+    const images = getRecipeImageUrls(recipe);
+
+    lines.push('  <url>');
+    lines.push(`    <loc>${escapeHtml(loc)}</loc>`);
+    if (lastmod) {
+      lines.push(`    <lastmod>${lastmod}</lastmod>`);
+    }
+    lines.push('    <changefreq>weekly</changefreq>');
+    lines.push('    <priority>0.8</priority>');
+
+    for (const imageUrl of images) {
+      lines.push('    <image:image>');
+      lines.push(`      <image:loc>${escapeHtml(imageUrl)}</image:loc>`);
+      lines.push('    </image:image>');
+    }
+
+    lines.push('  </url>');
+  }
+
+  lines.push('');
+  lines.push('</urlset>');
+
+  return `${lines.join('\n')}\n`;
+}
+
+async function writeSitemap(recipes) {
+  const xml = await buildSitemapDocument(recipes);
+  await fs.writeFile(SITEMAP_OUTPUT_PATH, xml, 'utf8');
+  console.log('Updated dist/sitemap.xml with enriched metadata.');
 }
 
 function buildRecipeDescription(recipe) {
@@ -797,6 +965,8 @@ async function main() {
   const updatedHomeHtml = $.html();
   await fs.writeFile(OUTPUT_PATH, updatedHomeHtml, 'utf8');
   console.log('Successfully updated dist/index.html with prerendered content.');
+
+  await writeSitemap(recipes);
 
   await generateRecipePages(recipes, updatedHomeHtml);
 }
