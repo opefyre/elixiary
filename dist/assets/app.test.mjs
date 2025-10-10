@@ -21,22 +21,67 @@ function createStorageStub() {
   };
 }
 
-test('FilterManager.createChipGroup drops placeholder category labels', async () => {
-  const scriptSource = await readFile(new URL('./app.js', import.meta.url), 'utf8');
+const scriptSourcePromise = readFile(new URL('./app.js', import.meta.url), 'utf8');
 
-  const catContainer = {
+function createContainerStub() {
+  return {
     innerHTML: '',
+    textContent: '',
+    value: '',
+    dataset: {},
+    style: {},
+    disabled: false,
+    classList: {
+      add() {},
+      remove() {},
+      toggle() {}
+    },
     setAttribute() {},
+    removeAttribute() {},
     querySelector() { return null; },
+    querySelectorAll() { return []; },
     appendChild() {},
     removeChild() {},
-    classList: { add() {}, remove() {}, toggle() {} }
+    replaceChild() {},
+    addEventListener() {},
+    removeEventListener() {},
+    parentNode: {
+      replaceChild() {}
+    }
   };
+}
+
+async function createAppTestContext({ fetchImpl, elements = {} } = {}) {
+  const scriptSource = await scriptSourcePromise;
+
+  const storage = createStorageStub();
+  const sessionStorage = createStorageStub();
+
+  const elementMap = new Map();
+  for (const [selector, element] of Object.entries(elements)) {
+    elementMap.set(selector, element);
+  }
+
+  const defaultSelectors = [
+    '#filters',
+    '#filters-body',
+    '#filters-toggle',
+    '#filters-active-count',
+    '#filters-active-count-sr',
+    '#view',
+    '#moreBtn',
+    '#pager',
+    '#active-filters'
+  ];
+  defaultSelectors.forEach((selector) => {
+    if (!elementMap.has(selector)) {
+      elementMap.set(selector, createContainerStub());
+    }
+  });
 
   const documentStub = {
     querySelector(selector) {
-      if (selector === '#cat') return catContainer;
-      return null;
+      return elementMap.get(selector) || null;
     },
     querySelectorAll() {
       return [];
@@ -44,27 +89,18 @@ test('FilterManager.createChipGroup drops placeholder category labels', async ()
     addEventListener() {},
     removeEventListener() {},
     createElement() {
-      return {
-        setAttribute() {},
-        removeAttribute() {},
-        appendChild() {},
-        remove() {},
-        innerHTML: '',
-        content: { firstElementChild: null },
-        classList: { add() {}, remove() {}, toggle() {} }
-      };
+      const el = createContainerStub();
+      el.content = { firstElementChild: null };
+      return el;
     },
-    documentElement: {
+    documentElement: Object.assign(createContainerStub(), {
       setAttribute() {},
-      removeAttribute() {},
-      classList: { add() {}, remove() {}, toggle() {} }
-    },
-    body: {
-      setAttribute() {},
+      removeAttribute() {}
+    }),
+    body: Object.assign(createContainerStub(), {
       appendChild() {},
-      removeChild() {},
-      classList: { add() {}, remove() {}, toggle() {} }
-    },
+      removeChild() {}
+    }),
     head: {
       appendChild() {},
       removeChild() {}
@@ -86,9 +122,6 @@ test('FilterManager.createChipGroup drops placeholder category labels', async ()
     userAgent: 'node',
     platform: 'node'
   };
-
-  const storage = createStorageStub();
-  const sessionStorage = createStorageStub();
 
   class CustomEvt {
     constructor(type, init = {}) {
@@ -115,6 +148,15 @@ test('FilterManager.createChipGroup drops placeholder category labels', async ()
     removeEventListener() {}
   }
 
+  const AbortControllerRef = typeof AbortController === 'function'
+    ? AbortController
+    : class {
+        constructor() {
+          this.signal = {};
+        }
+        abort() {}
+      };
+
   const sandbox = {
     console,
     setTimeout,
@@ -126,7 +168,8 @@ test('FilterManager.createChipGroup drops placeholder category labels', async ()
     TextEncoder,
     TextDecoder,
     performance: { now: () => Date.now() },
-    history: { pushState() {}, replaceState() {}, state: null }
+    history: { pushState() {}, replaceState() {}, state: null },
+    AbortController: AbortControllerRef
   };
 
   const windowStub = {
@@ -155,9 +198,13 @@ test('FilterManager.createChipGroup drops placeholder category labels', async ()
     IntersectionObserver: NoopObserver,
     MutationObserver: NoopObserver,
     ResizeObserver: NoopObserver,
-    fetch: () => Promise.resolve({ ok: true, json: async () => ({}) }),
+    AbortController: AbortControllerRef,
     Image: NoopImage,
-    navigator: navigatorStub
+    fetch: fetchImpl || (() => Promise.resolve({
+      status: 200,
+      headers: { get: () => null },
+      json: async () => ({})
+    }))
   };
 
   windowStub.window = windowStub;
@@ -175,13 +222,30 @@ test('FilterManager.createChipGroup drops placeholder category labels', async ()
     IntersectionObserver: NoopObserver,
     MutationObserver: NoopObserver,
     ResizeObserver: NoopObserver,
-    matchMedia: windowStub.matchMedia
+    matchMedia: windowStub.matchMedia,
+    AbortController: AbortControllerRef
   });
 
   vm.createContext(sandbox);
   vm.runInContext(scriptSource, sandbox);
 
-  const { FilterManager, AppState } = sandbox.window.ElixiaryApp;
+  return {
+    window: windowStub,
+    document: documentStub,
+    elements: elementMap
+  };
+}
+
+test('FilterManager.createChipGroup drops placeholder category labels', async () => {
+  const catContainer = createContainerStub();
+
+  const { window } = await createAppTestContext({
+    elements: {
+      '#cat': catContainer
+    }
+  });
+
+  const { FilterManager, AppState } = window.ElixiaryApp;
   AppState.filter.category = null;
 
   FilterManager.createChipGroup(['Classics', 'unknown_other', 'Tiki'], 'category', '#cat');
@@ -191,4 +255,50 @@ test('FilterManager.createChipGroup drops placeholder category labels', async ()
   assert.ok(html.includes('Tiki'));
   assert.ok(!html.includes('Unknown Other'));
   assert.ok(!html.includes('unknown_other'));
+  assert.match(html, /data-v="classics"/);
+  assert.match(html, /data-v="tiki"/);
+});
+
+test('APIClient.fetchList sends raw filter values while displaying labels', async () => {
+  const catContainer = createContainerStub();
+  const activeFiltersContainer = createContainerStub();
+  const fetchCalls = [];
+
+  const fetchStub = async (url) => {
+    fetchCalls.push(url);
+    return {
+      status: 200,
+      headers: { get: () => null },
+      json: async () => ({
+        ok: true,
+        posts: [{ id: 'abc', name: 'Test Cocktail' }],
+        total: 1,
+        has_more: false
+      })
+    };
+  };
+
+  const { window } = await createAppTestContext({
+    fetchImpl: fetchStub,
+    elements: {
+      '#cat': catContainer,
+      '#active-filters': activeFiltersContainer
+    }
+  });
+
+  const { FilterManager, AppState, APIClient } = window.ElixiaryApp;
+
+  FilterManager.createChipGroup(['Low ABV'], 'category', '#cat');
+  assert.match(catContainer.innerHTML, /data-v="low abv"/);
+
+  AppState.filter.category = 'low abv';
+  FilterManager.renderActiveFilters();
+  assert.match(activeFiltersContainer.innerHTML, /Low ABV/);
+
+  const data = await APIClient.fetchList({ page: 1 });
+  assert.equal(fetchCalls.length, 1);
+  const requested = new URL(fetchCalls[0]);
+  assert.equal(requested.searchParams.get('category'), 'low abv');
+  assert.equal(data.ok, true);
+  assert.equal(Array.isArray(data.posts) ? data.posts.length : 0, 1);
 });
