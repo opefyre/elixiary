@@ -15,6 +15,10 @@ const OUTPUT_PATH = path.join(__dirname, '..', 'dist', 'index.html');
 const SITEMAP_OUTPUT_PATH = path.join(__dirname, '..', 'dist', 'sitemap.xml');
 const SITE_ORIGIN = 'https://www.elixiary.com';
 const USER_AGENT = 'ElixiaryBuildBot/1.0 (+https://www.elixiary.com)';
+const HOMEPAGE_RECIPE_LIMIT = 30;
+const RECIPE_DETAIL_MAX_RETRIES = 5;
+const RECIPE_DETAIL_RETRY_DELAY_MS = 500;
+const RECIPE_DETAIL_MAX_RETRY_DELAY_MS = 5000;
 
 const CORE_SITEMAP_PAGES = [
   {
@@ -385,23 +389,53 @@ function buildItemList(recipes) {
 }
 
 async function fetchRecipes() {
-  const response = await fetch(`${API_URL}?page=1`, {
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': USER_AGENT
+  const allRecipes = [];
+  const seenSlugs = new Set();
+
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore) {
+    const response = await fetch(`${API_URL}?page=${page}`, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': USER_AGENT
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch recipes (page ${page}): ${response.status} ${response.statusText}`);
     }
-  });
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch recipes: ${response.status} ${response.statusText}`);
+    const payload = await response.json();
+    if (!payload || !Array.isArray(payload.posts)) {
+      throw new Error(`Unexpected API response when fetching recipes (page ${page}).`);
+    }
+
+    const pageRecipes = payload.posts.filter((recipe) => {
+      const slug = String(recipe?.slug || '').trim();
+      if (!slug) {
+        return false;
+      }
+      if (seenSlugs.has(slug)) {
+        return false;
+      }
+      seenSlugs.add(slug);
+      return true;
+    });
+
+    allRecipes.push(...pageRecipes);
+
+    hasMore = Boolean(payload.has_more);
+    page += 1;
+
+    if (hasMore && !payload.posts.length) {
+      console.warn('API indicated more pages but returned no posts; stopping pagination to avoid infinite loop.');
+      break;
+    }
   }
 
-  const payload = await response.json();
-  if (!payload || !Array.isArray(payload.posts)) {
-    throw new Error('Unexpected API response when fetching recipes.');
-  }
-
-  return payload.posts;
+  return allRecipes;
 }
 
 async function updateStructuredData($, recipes) {
@@ -429,26 +463,80 @@ async function updateStructuredData($, recipes) {
   script.text(JSON.stringify(data, null, 2));
 }
 
+function parseRetryAfterMs(response) {
+  const header = response.headers?.get?.('retry-after');
+  if (!header) {
+    return null;
+  }
+
+  const seconds = Number(header);
+  if (Number.isFinite(seconds)) {
+    return Math.min(Math.max(seconds * 1000, 0), RECIPE_DETAIL_MAX_RETRY_DELAY_MS);
+  }
+
+  const date = Date.parse(header);
+  if (!Number.isNaN(date)) {
+    return Math.min(Math.max(date - Date.now(), 0), RECIPE_DETAIL_MAX_RETRY_DELAY_MS);
+  }
+
+  return null;
+}
+
+async function delay(ms) {
+  if (!ms || ms <= 0) return;
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function fetchRecipeDetail(slug) {
   if (!slug) return null;
   const target = `${POST_API_URL}/${encodeURIComponent(slug)}`;
-  const response = await fetch(target, {
-    headers: {
-      'User-Agent': USER_AGENT,
-      Accept: 'application/json'
+
+  let attempt = 0;
+  let lastError;
+
+  while (attempt < RECIPE_DETAIL_MAX_RETRIES) {
+    attempt += 1;
+    try {
+      const response = await fetch(target, {
+        headers: {
+          'User-Agent': USER_AGENT,
+          Accept: 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (!data?.ok || !data?.post) {
+          throw new Error(`Unexpected API response when fetching recipe ${slug}.`);
+        }
+        return data.post;
+      }
+
+      if (response.status === 429 || response.status >= 500) {
+        const retryDelay =
+          parseRetryAfterMs(response) || RECIPE_DETAIL_RETRY_DELAY_MS * attempt;
+        console.warn(
+          `Retrying fetch for recipe "${slug}" due to ${response.status} ${response.statusText} (attempt ${attempt} of ${RECIPE_DETAIL_MAX_RETRIES}) in ${retryDelay}ms`
+        );
+        lastError = new Error(`Failed to fetch recipe ${slug}: ${response.status} ${response.statusText}`);
+        if (attempt < RECIPE_DETAIL_MAX_RETRIES) {
+          await delay(retryDelay);
+          continue;
+        }
+      } else {
+        throw new Error(`Failed to fetch recipe ${slug}: ${response.status} ${response.statusText}`);
+      }
+    } catch (error) {
+      lastError = error;
+      if (attempt < RECIPE_DETAIL_MAX_RETRIES) {
+        await delay(RECIPE_DETAIL_RETRY_DELAY_MS * attempt);
+        continue;
+      }
     }
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch recipe ${slug}: ${response.status} ${response.statusText}`);
+    break;
   }
 
-  const data = await response.json();
-  if (!data?.ok || !data?.post) {
-    throw new Error(`Unexpected API response when fetching recipe ${slug}.`);
-  }
-
-  return data.post;
+  throw lastError || new Error(`Failed to fetch recipe ${slug}: unknown error`);
 }
 
 async function buildSitemapDocument(recipes) {
@@ -926,6 +1014,7 @@ async function main() {
   }
 
   console.log(`Fetched ${recipes.length} recipes.`);
+  const homepageRecipes = recipes.slice(0, HOMEPAGE_RECIPE_LIMIT);
   const html = await fs.readFile(OUTPUT_PATH, 'utf8');
   const $ = cheerio.load(html);
 
@@ -934,11 +1023,11 @@ async function main() {
     throw new Error('Failed to locate #view container in index.html');
   }
 
-  const gridMarkup = buildGrid(recipes);
+  const gridMarkup = buildGrid(homepageRecipes);
   view.html(gridMarkup);
   view.attr('data-prerendered', 'true');
 
-  const description = buildMetaDescription(recipes);
+  const description = buildMetaDescription(homepageRecipes);
   if (description) {
     $('meta[name="description"]').attr('content', description);
   }
@@ -946,7 +1035,7 @@ async function main() {
   const pageTitle = $('title').first().text().trim();
 
   let socialImage = '';
-  const firstImage = recipes.find((recipe) => recipe.image_url || recipe.image_thumb);
+  const firstImage = homepageRecipes.find((recipe) => recipe.image_url || recipe.image_thumb);
   if (firstImage) {
     const imageUrl = firstImage.image_url || firstImage.image_thumb;
     if (imageUrl) {
@@ -960,7 +1049,7 @@ async function main() {
     image: socialImage || undefined
   });
 
-  await updateStructuredData($, recipes);
+  await updateStructuredData($, homepageRecipes);
 
   const updatedHomeHtml = $.html();
   await fs.writeFile(OUTPUT_PATH, updatedHomeHtml, 'utf8');
