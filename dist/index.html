@@ -1371,6 +1371,32 @@
     }
     article h1{margin:0 0 6px; font-size:clamp(28px,3.2vw,36px); letter-spacing:.01em}
     .info{color:var(--muted); font-size:14px; margin-bottom:16px}
+    .row{display:flex; flex-wrap:wrap; gap:22px; margin:10px 0 8px}
+    .col{flex:1 1 280px}
+    .list{margin:10px 0 0; padding-left:18px}
+    .list li {
+      margin-bottom: 4px;
+    }
+    .kvs{display:grid; gap:8px}
+    .kv{display:flex; gap:6px; align-items:center; color:var(--muted); font-size:14px}
+    .kv b{font-weight:600; color:var(--text)}
+    .back{ 
+      display:inline-flex; 
+      align-items:center; 
+      gap:8px; 
+      padding:10px 12px; 
+      margin-top:18px; 
+      border:1px solid var(--line);
+      border-radius:999px; 
+      color:var(--muted); 
+      background:var(--bg); 
+      transition:transform var(--fade), box-shadow var(--fade), border-color var(--fade);
+      text-decoration: none;
+    }
+    .back:hover{transform:translateY(-1px); box-shadow:0 10px 22px rgba(16,24,40,.08); border-color:var(--line)}
+    .back:focus{outline:none; box-shadow:var(--ring)}
+
+    /* Detail share layout */
     .detail-meta{
       display:flex;
       align-items:center;
@@ -1450,30 +1476,6 @@
         transform:none;
       }
     }
-    .row{display:flex; flex-wrap:wrap; gap:22px; margin:10px 0 8px}
-    .col{flex:1 1 280px}
-    .list{margin:10px 0 0; padding-left:18px}
-    .list li {
-      margin-bottom: 4px;
-    }
-    .kvs{display:grid; gap:8px}
-    .kv{display:flex; gap:6px; align-items:center; color:var(--muted); font-size:14px}
-    .kv b{font-weight:600; color:var(--text)}
-    .back{ 
-      display:inline-flex; 
-      align-items:center; 
-      gap:8px; 
-      padding:10px 12px; 
-      margin-top:18px; 
-      border:1px solid var(--line);
-      border-radius:999px; 
-      color:var(--muted); 
-      background:var(--bg); 
-      transition:transform var(--fade), box-shadow var(--fade), border-color var(--fade);
-      text-decoration: none;
-    }
-    .back:hover{transform:translateY(-1px); box-shadow:0 10px 22px rgba(16,24,40,.08); border-color:var(--line)}
-    .back:focus{outline:none; box-shadow:var(--ring)}
 
     /* Loading states */
     .loading-indicator {
