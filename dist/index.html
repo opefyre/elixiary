@@ -714,10 +714,83 @@
       max-width:60ch;
     }
 
+    .hero .ai-callout{
+      display:flex;
+      align-items:center;
+      gap:16px;
+      padding:16px 20px;
+      background:var(--soft);
+      border:1px solid var(--line);
+      border-left:3px solid var(--accent);
+      border-radius:calc(var(--radius) - 2px);
+      text-decoration:none;
+      color:var(--text);
+      box-shadow:0 12px 28px rgba(15,23,42,.05);
+      transition:transform var(--fade), box-shadow var(--fade), border-color var(--fade);
+    }
+
+    .hero .ai-callout:hover,
+    .hero .ai-callout:focus-visible{
+      transform:translateY(-2px);
+      box-shadow:0 20px 36px rgba(15,23,42,.12);
+      border-color:var(--accent);
+      outline:none;
+    }
+
+    .hero .ai-callout__badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:4px 10px;
+      border-radius:999px;
+      background:var(--accent);
+      color:var(--bg);
+      font-size:12px;
+      font-weight:600;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+    }
+
+    .hero .ai-callout__content{
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+    }
+
+    .hero .ai-callout__headline{
+      font-size:16px;
+      font-weight:600;
+      color:var(--text);
+    }
+
+    .hero .ai-callout__meta{
+      font-size:14px;
+      color:var(--muted);
+    }
+
+    .hero .ai-callout__icon{
+      margin-left:auto;
+      font-size:18px;
+      color:var(--accent);
+      transition:transform var(--fade);
+    }
+
+    .hero .ai-callout:hover .ai-callout__icon,
+    .hero .ai-callout:focus-visible .ai-callout__icon{
+      transform:translateX(4px);
+    }
+
     @media (max-width:768px){
       .hero{padding:24px}
       .hero h1{font-size:26px}
       .hero p{font-size:16px}
+      .hero .ai-callout{
+        flex-direction:column;
+        align-items:flex-start;
+        gap:12px;
+        padding:16px;
+      }
+      .hero .ai-callout__icon{margin-left:0}
     }
 
     /* Filters - Responsive Collapsible */
@@ -2018,6 +2091,14 @@
         <div class="hero-content">
           <h1 id="hero-heading">Discover Amazing Cocktail Recipes</h1>
           <p>Browse a curated catalogue of handcrafted cocktails, filter by mood or ingredients, and uncover new favorites for every occasion.</p>
+          <a class="ai-callout" href="https://ai.elixiary.com/" target="_blank" rel="noopener" aria-label="Explore the Elixiary AI cocktail assistant (opens in a new tab)">
+            <span class="ai-callout__badge" aria-hidden="true">New</span>
+            <span class="ai-callout__content">
+              <span class="ai-callout__headline">Elixiary AI has your next cocktail idea</span>
+              <span class="ai-callout__meta">Get tailored drink inspiration in seconds.</span>
+            </span>
+            <span class="ai-callout__icon" aria-hidden="true">→</span>
+          </a>
         </div>
       </section>
       <!-- Filters -->
